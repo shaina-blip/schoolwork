@@ -30,8 +30,8 @@
 
   <main class="survey-main">
 
-    <!-- ─── SECTION 1: WELCOME ──────────────────────── -->
-    <div class="survey-section" id="section-1">
+    <!-- ─── SECTION 0: HOW TO PROCEED ───────────────── -->
+    <div class="survey-section" id="section-0">
       <div class="section-hero">
         <h1 class="section-title">
           Hi <span class="parent-name">there</span>! 👋
@@ -40,8 +40,57 @@
           We're so excited to get <strong class="student-name">your student</strong> started at Wildewood.
         </p>
         <p class="section-body">
-          This short survey helps us understand your schedule so we can put together a plan that works for your family. It takes about 3 minutes — promise.
+          How would you like to share your scheduling preferences?
         </p>
+      </div>
+
+      <div class="card">
+        <label class="field-label">Choose what works best for you</label>
+        <div class="choice-group stacked">
+          <label class="choice-item">
+            <input type="radio" name="s0-pref" value="survey">
+            <span class="choice-body">
+              <span class="choice-icon">📋</span>
+              <span>Fill out a short survey — takes about 3 minutes</span>
+            </span>
+          </label>
+          <label class="choice-item">
+            <input type="radio" name="s0-pref" value="meeting">
+            <span class="choice-body">
+              <span class="choice-icon">📅</span>
+              <span>I'd prefer to talk through scheduling in a meeting</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section-nav">
+        <button class="btn-next" id="s0-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─── SECTION: MEETING BOOKING ─────────────────── -->
+    <div class="survey-section" id="section-meeting" hidden>
+      <div class="thankyou-hero">
+        <div class="thankyou-icon">📅</div>
+        <h2 class="section-title">Let's find a time!</h2>
+        <p class="section-body">
+          Click below to book a meeting with Shay. She'll walk through your scheduling preferences with you directly.
+        </p>
+        <a href="https://calendar.app.google/w9AnxpKBFktTRNBg9"
+           target="_blank" rel="noopener"
+           class="btn-next"
+           style="display:inline-block;margin-top:1.25rem;text-decoration:none;">
+          📅 Book a Meeting with Shay →
+        </a>
+      </div>
+    </div>
+
+    <!-- ─── SECTION 1: WELCOME ──────────────────────── -->
+    <div class="survey-section" id="section-1" hidden>
+      <div class="section-hero">
+        <h2 class="section-title">Stay in Touch</h2>
+        <p class="section-body">This helps us reach out the right way once your schedule is ready.</p>
       </div>
 
       <div class="card">
@@ -72,6 +121,7 @@
       </div>
 
       <div class="section-nav">
+        <button class="btn-back" id="s1-back">← Back</button>
         <button class="btn-next" id="s1-next">Next →</button>
       </div>
     </div>

@@ -45,29 +45,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  wireSection0();
   wireSection1();
   wireSection2();
   wireSection3();
   wireSection4();
 
-  showSection(1);
+  showSection(0);
 });
 
 // ─── Section Navigation ───────────────────────────────────
 function showSection(n) {
   document.querySelectorAll('.survey-section').forEach(s => { s.hidden = true; });
-  const section = document.getElementById(`section-${n}`);
+  const sectionId = n === 'meeting' ? 'section-meeting' : `section-${n}`;
+  const section = document.getElementById(sectionId);
   if (section) {
     section.hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  const pct = Math.round((n / 5) * 100);
-  document.getElementById('progress-bar').style.width   = `${pct}%`;
-  document.getElementById('progress-label').textContent = n <= 5 ? `Step ${n} of 5` : 'Complete!';
+  if (n === 0 || n === 'meeting') {
+    document.getElementById('progress-bar').style.width   = '0%';
+    document.getElementById('progress-label').textContent = 'Getting started';
+  } else {
+    const pct = Math.round((n / 5) * 100);
+    document.getElementById('progress-bar').style.width   = `${pct}%`;
+    document.getElementById('progress-label').textContent = n <= 5 ? `Step ${n} of 5` : 'Complete!';
+  }
 }
 
-// ─── Section 1: Welcome ───────────────────────────────────
+// ─── Section 0: How to Proceed ───────────────────────────
+function wireSection0() {
+  document.getElementById('s0-next').addEventListener('click', () => {
+    const pref = document.querySelector('input[name="s0-pref"]:checked')?.value;
+    if (!pref) {
+      alert('Please select an option before continuing.');
+      return;
+    }
+    showSection(pref === 'meeting' ? 'meeting' : 1);
+  });
+}
+
+// ─── Section 1: Communication Preference ─────────────────
 function wireSection1() {
+  document.getElementById('s1-back').addEventListener('click', () => showSection(0));
   document.getElementById('s1-next').addEventListener('click', () => {
     surveyData.preferredComm = document.querySelector('input[name="s1-comm"]:checked')?.value || '';
     showSection(2);
