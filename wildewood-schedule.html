@@ -30,6 +30,16 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: #2A2A2A; min-height: 100vh; padding-bottom: 60px; }
 
+    /* Lock bar */
+    .lock-bar { background: #20402C; padding: 8px 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .lock-bar input[type="password"] { padding: 6px 10px; border-radius: 6px; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; width: 90px; }
+    .lock-bar button { padding: 6px 12px; border-radius: 6px; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.76rem; font-weight: 500; cursor: pointer; }
+    .lock-btn-unlock { background: var(--pink); color: var(--green); }
+    .lock-btn-view   { background: rgba(255,255,255,0.15); color: var(--white); }
+    .lock-btn-lock   { background: rgba(255,255,255,0.15); color: var(--white); }
+    .lock-status { font-size: 0.74rem; color: rgba(255,255,255,0.7); margin-left: auto; }
+    .lock-status.edit { color: var(--pink); font-weight: 500; }
+
     header { background: var(--green); padding: 22px 24px 18px; }
     .header-top { margin-bottom: 14px; }
     .header-title h1 { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 500; color: var(--white); line-height: 1.1; }
@@ -80,6 +90,7 @@
     .roster-count { font-size: 0.7rem; color: #999; white-space: nowrap; }
     .roster-sub-toggle { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: #aaa; cursor: pointer; white-space: nowrap; }
     .roster-sub-toggle input { accent-color: var(--sage); }
+    .roster-sub-toggle input:disabled { cursor: not-allowed; }
     .roster-item.is-sub { opacity: 0.7; }
     .roster-item.is-sub .roster-name::after { content: ' (subbing)'; color: #bbb; font-size: 0.72rem; font-weight: 400; }
 
@@ -108,24 +119,35 @@
     .settings-toggle.open .chevron { transform: rotate(180deg); }
     .settings-body { display: none; padding: 14px 0 0; }
     .settings-body.open { display: block; }
-    .settings-body label { display: block; font-size: 0.78rem; color: #555; margin-bottom: 5px; }
-    .settings-body input[type="url"] { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; background: var(--white); margin-bottom: 10px; }
+    .settings-body label { display: block; font-size: 0.78rem; color: #555; margin-bottom: 5px; margin-top: 12px; }
+    .settings-body label:first-of-type { margin-top: 0; }
+    .settings-body input[type="url"] { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; background: var(--white); }
     .settings-body input:focus { outline: none; border-color: var(--sage); }
-    .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .settings-body input:disabled, .settings-body button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
     .btn-primary { padding: 9px 18px; background: var(--green); color: var(--white); border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500; cursor: pointer; }
     .btn-ghost { padding: 9px 14px; background: transparent; color: #999; border: 1.5px solid #ddd; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; }
     .settings-status { font-size: 0.78rem; color: var(--sage); margin-top: 8px; min-height: 18px; }
     .settings-status.err { color: var(--overdue); }
     .settings-note { font-size: 0.72rem; color: #aaa; margin-top: 10px; line-height: 1.4; }
+    .settings-divider { height: 1px; background: #e0dcd7; margin: 16px 0; }
+    .csv-file-input { width: 100%; padding: 9px 0; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; }
   </style>
 </head>
 <body>
+
+<div class="lock-bar" id="lockBar">
+  <input type="password" id="pinInput" placeholder="PIN" />
+  <button class="lock-btn-unlock" id="unlockBtn">Unlock to edit</button>
+  <button class="lock-btn-view" id="viewOnlyBtn">View only</button>
+  <span class="lock-status" id="lockStatus">Viewing — read only</span>
+</div>
 
 <header>
   <div class="header-top">
     <div class="header-title">
       <h1>Wildewood Summer Schedule</h1>
-      <p id="headerSub">Jul 6 – Aug 31 · 2026</p>
+      <p id="headerSub">Live shared schedule · updates instantly for everyone</p>
     </div>
   </div>
   <div class="instructor-tabs" id="instructorTabs"></div>
@@ -144,38 +166,61 @@
       <span class="chevron">▾</span>
     </button>
     <div class="settings-body" id="settingsBody">
+      <label>Upload Teachworks lesson export (.csv) — replaces the shared schedule for everyone</label>
+      <input type="file" id="csvFileInput" class="csv-file-input" accept=".csv" disabled />
+      <div class="settings-status" id="csvStatus"></div>
+
+      <div class="settings-divider"></div>
+
       <label>Teachworks account calendar URL (Focus Time blocks)</label>
-      <input type="url" id="calUrlInput" placeholder="https://wildewoodeducation.teachworks.com/icalendar/account/…" />
+      <input type="url" id="calUrlInput" placeholder="https://wildewoodeducation.teachworks.com/icalendar/account/…" disabled />
       <div class="settings-actions">
-        <button class="btn-primary" id="saveCalBtn">Save & load</button>
+        <button class="btn-primary" id="saveCalBtn" disabled>Save & load</button>
         <button class="btn-ghost" id="refreshCalBtn">Refresh now</button>
       </div>
       <div class="settings-status" id="calStatus"></div>
-      <div class="settings-note">Lesson data is refreshed manually from Teachworks exports — send an updated CSV any time and it'll be rebuilt into this page. Focus Time blocks load live from the calendar URL above.</div>
+      <div class="settings-note">Lesson data lives in a shared Firebase database — anyone who uploads a new CSV updates it live for all 5 of you. Focus Time blocks load live from the calendar URL above. Unlock with the PIN at the top to edit either.</div>
     </div>
   </div>
 </main>
 
-<script>
+<script type="module">
 'use strict';
 
-const PROXY_URL = 'https://canvas-proxy.shaina-4f5.workers.dev';
-const CAL_KEY   = 'ww_account_cal_url_v1';
-const SUB_KEY   = 'ww_sub_flags_v1';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBLPlKE7wjcMbv6BXtOzXZhcN8ZMJgafJE",
+  authDomain: "wildewood-summer-2026-2ee69.firebaseapp.com",
+  databaseURL: "https://wildewood-summer-2026-2ee69-default-rtdb.firebaseio.com",
+  projectId: "wildewood-summer-2026-2ee69",
+  storageBucket: "wildewood-summer-2026-2ee69.firebasestorage.app",
+  messagingSenderId: "998326460919",
+  appId: "1:998326460919:web:01aaca398b52b1d0734ef2",
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+
+const PROXY_URL    = 'https://canvas-proxy.shaina-4f5.workers.dev';
+const CORRECT_PIN  = '7532';
+const UNLOCK_KEY   = 'ww_unlocked_v1';
 
 /* ── Instructors ────────────────────────────────────────────── */
 const INSTRUCTORS = [
-  { code: 'QC',   name: 'Quinn Cantor',      color: 'var(--qc)'   },
-  { code: 'JG',   name: 'Joelle Glazer',     color: 'var(--jg)'   },
-  { code: 'TS',   name: 'Tara Shuman',       color: 'var(--ts)'   },
-  { code: 'JP',   name: 'Josh Perrotton',    color: 'var(--jp)'   },
-  { code: 'SLFA', name: 'Shaina Fils-Aime',  color: 'var(--slfa)' },
+  { code: 'QC',   name: 'Quinn Cantor',      color: 'var(--qc)',   lastName: 'Cantor'     },
+  { code: 'JG',   name: 'Joelle Glazer',     color: 'var(--jg)',   lastName: 'Glazer'     },
+  { code: 'TS',   name: 'Tara Shuman',       color: 'var(--ts)',   lastName: 'Shuman'     },
+  { code: 'JP',   name: 'Josh Perrotton',    color: 'var(--jp)',   lastName: 'Perrotton'  },
+  { code: 'SLFA', name: 'Shaina Fils-Aime',  color: 'var(--slfa)', lastName: 'Fils-Aime'  },
 ];
 const INSTR_BY_CODE = {};
 INSTRUCTORS.forEach(i => INSTR_BY_CODE[i.code] = i);
+const LAST_NAME_TO_CODE = {};
+INSTRUCTORS.forEach(i => LAST_NAME_TO_CODE[i.lastName] = i.code);
 
-/* ── Session data (from Teachworks LessonSummary export, Jul 6 – Aug 31 2026) ── */
-const RAW_SESSIONS = [
+/* ── Seed data (used only if the shared database is empty on first load) ── */
+const SEED_SESSIONS = [
   ["2026-07-06","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
   ["2026-07-06","09:30","10:30","JP","Elise Donnino","Elise Donnino - ACT (ELA)"],
   ["2026-07-06","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
@@ -392,6 +437,7 @@ const RAW_SESSIONS = [
   ["2026-08-28","10:30","11:30","JG","Declan Morrissey","Declan Morrissey  - ISEE Verbal"],
   ["2026-08-31","10:00","11:00","QC","Declan Morrissey","Declan Morrissey - ISEE Math"],
 ];
+const SUMMER_START_YMD = '2026-07-06';
 
 /* ── Helpers ────────────────────────────────────────────────── */
 function ymdToDate(ymd) { const [y,m,d] = ymd.split('-').map(Number); return new Date(y,m-1,d); }
@@ -404,34 +450,49 @@ function isSameDay(a,b) { return a.getFullYear()===b.getFullYear() && a.getMonth
 function formatShortDate(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
 function formatDayHeading(d) { return d.toLocaleDateString('en-US', { weekday: 'long' }); }
 function formatTime(d) { let h=d.getHours(), m=d.getMinutes(), ap=h>=12?'pm':'am'; h=h%12||12; return `${h}${m?':'+String(m).padStart(2,'0'):''}${ap}`; }
+function fbKey(s) { return s.replace(/[.#$\[\]\/]/g, '_'); }
 
-const SESSIONS = RAW_SESSIONS.map(([date, start, end, code, student, title], i) => ({
-  id: 'sess-' + i,
-  date,
-  start: hmToDate(date, start),
-  end: hmToDate(date, end),
-  code, student, title,
-}));
+function sessionsFromRaw(raw) {
+  return raw.map(([date, start, end, code, student, title], i) => ({
+    id: 'sess-' + i, date, start: hmToDate(date, start), end: hmToDate(date, end), code, student, title,
+  }));
+}
 
-const SUMMER_START = ymdToDate('2026-07-06');
-const SUMMER_END   = ymdToDate('2026-08-31');
-
-/* ── State ──────────────────────────────────────────────────── */
+/* ── State (live, populated from Firebase) ───────────────────── */
+let SESSIONS    = sessionsFromRaw(SEED_SESSIONS); // shows seed instantly while Firebase loads
+let subFlags    = {};
+let focusEvents = [];
 let activeInstr = 'all';
 let viewMode    = 'week';
 let weekOffset  = 0;
 let monthOffset = 0;
-let focusEvents = []; // loaded live from Teachworks account calendar
+let isUnlocked  = sessionStorage.getItem(UNLOCK_KEY) === '1';
 
-/* ── localStorage ───────────────────────────────────────────── */
-function loadSubFlags() { return JSON.parse(localStorage.getItem(SUB_KEY) || '{}'); }
-function saveSubFlags(o) { localStorage.setItem(SUB_KEY, JSON.stringify(o)); }
-function loadCalUrl() { return localStorage.getItem(CAL_KEY) || ''; }
-function saveCalUrl(u) { localStorage.setItem(CAL_KEY, u); }
+/* ── Firebase: sessions ─────────────────────────────────────── */
+get(ref(db, 'sessions')).then(snap => {
+  if (!snap.exists()) set(ref(db, 'sessions'), SEED_SESSIONS);
+});
+onValue(ref(db, 'sessions'), snap => {
+  const val = snap.val();
+  if (val) SESSIONS = sessionsFromRaw(Object.values(val));
+  render();
+});
+
+/* ── Firebase: sub flags ────────────────────────────────────── */
+onValue(ref(db, 'subFlags'), snap => {
+  subFlags = snap.val() || {};
+  render();
+});
+
+/* ── Firebase: shared calendar URL setting ──────────────────── */
+onValue(ref(db, 'settings/calendarUrl'), snap => {
+  const url = snap.val() || '';
+  calUrlInput.value = url;
+  if (url) loadFocusAndRender('Loading');
+});
 
 /* ── iCal fetch + parse (Focus Time detection) ─────────────── */
-async function fetchFocusEvents() {
-  const url = loadCalUrl();
+async function fetchFocusEvents(url) {
   if (!url) return [];
   const res = await fetch(`${PROXY_URL}/calendar`, { headers: { 'X-Calendar-URL': url } });
   const text = await res.text();
@@ -448,8 +509,7 @@ async function fetchFocusEvents() {
     }
     if (!code && ev.organizer) {
       for (const instr of INSTRUCTORS) {
-        const last = instr.name.split(' ').pop().toLowerCase();
-        if ((ev.organizer || '').toLowerCase().includes(last)) { code = instr.code; break; }
+        if ((ev.organizer || '').toLowerCase().includes(instr.lastName.toLowerCase())) { code = instr.code; break; }
       }
     }
     if (!code) continue;
@@ -489,6 +549,74 @@ function parseICSDate(val) {
   return new Date(y,mo,d,h,m,s);
 }
 
+/* ── CSV parsing (Teachworks LessonSummary export) ───────────── */
+function parseCSVText(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') { if (text[i+1] === '"') { field += '"'; i++; } else inQuotes = false; }
+      else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i+1] === '\n') i++;
+        row.push(field); field = '';
+        if (row.some(f => f !== '')) rows.push(row);
+        row = [];
+      } else field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); if (row.some(f => f !== '')) rows.push(row); }
+  return rows;
+}
+
+function parseUSDate(d) {
+  const m = d.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${String(+m[1]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`;
+}
+function parseUSTime(t) {
+  const m = t.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  let h = +m[1]; const mi = +m[2]; const ap = m[3].toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;
+}
+
+function csvToSessions(text) {
+  const rows = parseCSVText(text);
+  if (!rows.length) throw new Error('CSV appears empty.');
+  const header = rows[0].map(h => h.trim());
+  const idx = name => header.indexOf(name);
+  const cols = {
+    date: idx('Date'), start: idx('Start Time'), end: idx('End Time'), title: idx('Title'),
+    edLast: idx('Educator Last Name'), stuFirst: idx('Student First Name'), stuLast: idx('Student Last Name'),
+  };
+  if (Object.values(cols).some(v => v === -1)) throw new Error('CSV is missing an expected column. Check the header row.');
+
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const lastName = (r[cols.edLast] || '').trim();
+    const code = LAST_NAME_TO_CODE[lastName];
+    if (!code) continue;
+    const date = parseUSDate(r[cols.date] || '');
+    if (!date || date < SUMMER_START_YMD) continue;
+    const start = parseUSTime(r[cols.start] || '');
+    const end = parseUSTime(r[cols.end] || '');
+    if (!start || !end) continue;
+    const student = `${(r[cols.stuFirst]||'').trim()} ${(r[cols.stuLast]||'').trim()}`.trim();
+    const title = (r[cols.title] || '').trim() || student;
+    out.push([date, start, end, code, student, title]);
+  }
+  out.sort((a,b) => (a[0]+a[1]).localeCompare(b[0]+b[1]));
+  return out;
+}
+
 /* ── Lunch suggestion ───────────────────────────────────────── */
 function lunchSuggestionFor(code, dateYmd) {
   const daySessions = SESSIONS.filter(s => s.code === code && s.date === dateYmd).sort((a,b) => a.start - b.start);
@@ -497,7 +625,6 @@ function lunchSuggestionFor(code, dateYmd) {
   const dayStart = daySessions[0].start;
   const dayEnd   = daySessions[daySessions.length-1].end;
 
-  // Merge booked session blocks only (Focus Time does NOT block lunch placement)
   const merged = [];
   for (const s of daySessions) {
     if (merged.length && s.start <= merged[merged.length-1].end) {
@@ -515,11 +642,9 @@ function lunchSuggestionFor(code, dateYmd) {
 
   if (!gaps.length) return { none: true, dayStart, dayEnd };
 
-  // Prefer gap overlapping midday window (11am-2pm), else first gap
   const midStart = hmToDate(dateYmd, '11:00'), midEnd = hmToDate(dateYmd, '14:00');
   let best = gaps.find(g => g.start < midEnd && g.end > midStart) || gaps[0];
 
-  // Place 30-min lunch slot, biased toward midday within the gap
   let lunchStart = best.start;
   if (best.start < midStart && best.end > midStart) lunchStart = midStart;
   let lunchEnd = new Date(lunchStart.getTime() + 30*60000);
@@ -649,23 +774,20 @@ function renderWeek() {
 /* ── Roster render ──────────────────────────────────────────── */
 function renderRoster(container, code) {
   const roster = rosterFor(code);
-  const subFlags = loadSubFlags();
   container.innerHTML = `<div class="roster-section"><div class="roster-title">Students this summer (${roster.length})</div><div id="rosterList"></div></div>`;
   const list = document.getElementById('rosterList');
   if (!roster.length) { list.innerHTML = '<div class="empty-state">No sessions found.</div>'; return; }
   roster.forEach(({ student, count }) => {
-    const key = `${code}::${student}`;
+    const key = fbKey(`${code}__${student}`);
     const isSub = !!subFlags[key];
     const item = document.createElement('div');
     item.className = `roster-item${isSub ? ' is-sub' : ''}`;
     item.innerHTML = `
       <span class="roster-name">${student}</span>
       <span class="roster-count">${count} session${count>1?'s':''}</span>
-      <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''}/> subbing</label>`;
+      <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''} ${isUnlocked?'':'disabled'}/> subbing</label>`;
     item.querySelector('input').addEventListener('change', e => {
-      const flags = loadSubFlags();
-      if (e.target.checked) flags[key] = 1; else delete flags[key];
-      saveSubFlags(flags);
+      set(ref(db, `subFlags/${key}`), e.target.checked ? true : null);
       item.classList.toggle('is-sub', e.target.checked);
     });
     list.appendChild(item);
@@ -737,6 +859,40 @@ function render() {
   if (viewMode === 'week') renderWeek(); else renderMonth();
 }
 
+/* ── PIN lock ───────────────────────────────────────────────── */
+const pinInput = document.getElementById('pinInput');
+const lockStatus = document.getElementById('lockStatus');
+const csvFileInput = document.getElementById('csvFileInput');
+const calUrlInputForLock = () => document.getElementById('calUrlInput');
+const saveCalBtnForLock = () => document.getElementById('saveCalBtn');
+
+function applyLockUI() {
+  csvFileInput.disabled = !isUnlocked;
+  calUrlInputForLock().disabled = !isUnlocked;
+  saveCalBtnForLock().disabled = !isUnlocked;
+  lockStatus.textContent = isUnlocked ? '🔓 Edit mode' : 'Viewing — read only';
+  lockStatus.className = `lock-status${isUnlocked ? ' edit' : ''}`;
+  render();
+}
+
+document.getElementById('unlockBtn').addEventListener('click', () => {
+  if (pinInput.value.trim() === CORRECT_PIN) {
+    isUnlocked = true;
+    sessionStorage.setItem(UNLOCK_KEY, '1');
+    pinInput.value = '';
+    applyLockUI();
+  } else {
+    lockStatus.textContent = 'Wrong PIN';
+    lockStatus.className = 'lock-status err';
+  }
+});
+document.getElementById('viewOnlyBtn').addEventListener('click', () => {
+  isUnlocked = false;
+  sessionStorage.removeItem(UNLOCK_KEY);
+  applyLockUI();
+});
+applyLockUI();
+
 /* ── Settings ───────────────────────────────────────────────── */
 document.getElementById('settingsToggle').addEventListener('click', () => {
   const toggle = document.getElementById('settingsToggle');
@@ -747,13 +903,14 @@ document.getElementById('settingsToggle').addEventListener('click', () => {
 
 const calUrlInput = document.getElementById('calUrlInput');
 const calStatus = document.getElementById('calStatus');
-calUrlInput.value = loadCalUrl();
+const csvStatus = document.getElementById('csvStatus');
 
 async function loadFocusAndRender(statusPrefix) {
+  const url = calUrlInput.value.trim();
   calStatus.className = 'settings-status';
   calStatus.textContent = `${statusPrefix}…`;
   try {
-    focusEvents = await fetchFocusEvents();
+    focusEvents = await fetchFocusEvents(url);
     calStatus.textContent = `${statusPrefix} done — ${focusEvents.length} Focus Time block${focusEvents.length===1?'':'s'} found.`;
     render();
   } catch (e) {
@@ -763,14 +920,37 @@ async function loadFocusAndRender(statusPrefix) {
 }
 
 document.getElementById('saveCalBtn').addEventListener('click', () => {
-  saveCalUrl(calUrlInput.value.trim());
+  if (!isUnlocked) return;
+  set(ref(db, 'settings/calendarUrl'), calUrlInput.value.trim());
   loadFocusAndRender('Loading');
 });
 document.getElementById('refreshCalBtn').addEventListener('click', () => loadFocusAndRender('Refreshing'));
 
+csvFileInput.addEventListener('change', () => {
+  if (!isUnlocked) return;
+  const file = csvFileInput.files[0];
+  if (!file) return;
+  csvStatus.className = 'settings-status';
+  csvStatus.textContent = 'Parsing…';
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const parsed = csvToSessions(reader.result);
+      if (!parsed.length) throw new Error('No matching sessions found for the 5 core instructors from ' + SUMMER_START_YMD + ' onward.');
+      await set(ref(db, 'sessions'), parsed);
+      csvStatus.textContent = `Uploaded — ${parsed.length} sessions saved for everyone.`;
+    } catch (e) {
+      csvStatus.className = 'settings-status err';
+      csvStatus.textContent = 'Could not parse CSV: ' + e.message;
+    }
+    csvFileInput.value = '';
+  };
+  reader.onerror = () => { csvStatus.className = 'settings-status err'; csvStatus.textContent = 'Could not read file.'; };
+  reader.readAsText(file);
+});
+
 /* ── Init ───────────────────────────────────────────────────── */
 render();
-if (loadCalUrl()) loadFocusAndRender('Loading');
 </script>
 </body>
 </html>
