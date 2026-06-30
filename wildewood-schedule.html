@@ -22,7 +22,7 @@
       --jg:   #9B59B6;
       --ts:   #16A085;
       --jp:   #D68910;
-      --slfa: #C2185B;
+      --slfa: #FAC0D1;
 
       --overdue: #C0392B;
       --focus:   #B0A8C8;
@@ -514,6 +514,13 @@ function startFirebaseListeners() {
     calUrlInput.value = url;
     if (url) loadFocusAndRender('Loading');
   });
+
+  onValue(ref(db, 'meta/lastUpload'), snap => {
+    const m = snap.val();
+    if (!m) return;
+    csvStatus.className = 'settings-status';
+    csvStatus.textContent = `Currently loaded: ${m.count} sessions — uploaded ${new Date(m.at).toLocaleString()} by ${m.by}.`;
+  });
 }
 
 /* ── iCal fetch + parse (Focus Time detection) ─────────────── */
@@ -647,9 +654,7 @@ function lunchSuggestionFor(code, dateYmd) {
   const daySessions = SESSIONS.filter(s => s.code === code && s.date === dateYmd).sort((a,b) => a.start - b.start);
   if (!daySessions.length) return null;
 
-  const dayStart = daySessions[0].start;
-  const dayEnd   = daySessions[daySessions.length-1].end;
-
+  // Merge booked session blocks only -- Focus Time is intentionally excluded here
   const merged = [];
   for (const s of daySessions) {
     if (merged.length && s.start <= merged[merged.length-1].end) {
@@ -657,25 +662,52 @@ function lunchSuggestionFor(code, dateYmd) {
     } else merged.push({ start: s.start, end: s.end });
   }
 
+  // Search a generous fixed window, not just the gaps between sessions --
+  // a day with one early session still has the whole afternoon free.
+  const dayWindowStart = hmToDate(dateYmd, '06:00');
+  const dayWindowEnd   = hmToDate(dateYmd, '20:00');
   const gaps = [];
-  let cursor = dayStart;
+  let cursor = dayWindowStart;
   for (const b of merged) {
-    const gapMin = (b.start - cursor) / 60000;
-    if (gapMin >= 30) gaps.push({ start: cursor, end: b.start, minutes: gapMin });
+    if (b.start > cursor) gaps.push({ start: cursor, end: b.start });
     if (b.end > cursor) cursor = b.end;
   }
+  if (dayWindowEnd > cursor) gaps.push({ start: cursor, end: dayWindowEnd });
+  const usableGaps = gaps.filter(g => (g.end - g.start) >= 30*60000);
 
-  if (!gaps.length) return { none: true, dayStart, dayEnd };
+  if (!usableGaps.length) return { none: true, dayStart: daySessions[0].start, dayEnd: daySessions[daySessions.length-1].end };
 
-  const midStart = hmToDate(dateYmd, '11:00'), midEnd = hmToDate(dateYmd, '14:00');
-  let best = gaps.find(g => g.start < midEnd && g.end > midStart) || gaps[0];
+  function slotWithin(gap, winStart, winEnd) {
+    const s = gap.start > winStart ? gap.start : winStart;
+    const e = gap.end < winEnd ? gap.end : winEnd;
+    if (e - s >= 30*60000) return { start: new Date(s), end: new Date(s.getTime() + 30*60000) };
+    return null;
+  }
 
-  let lunchStart = best.start;
-  if (best.start < midStart && best.end > midStart) lunchStart = midStart;
-  let lunchEnd = new Date(lunchStart.getTime() + 30*60000);
-  if (lunchEnd > best.end) { lunchEnd = best.end; lunchStart = new Date(lunchEnd.getTime() - 30*60000); }
+  const primaryStart = hmToDate(dateYmd, '12:00'), primaryEnd = hmToDate(dateYmd, '13:30');
+  const earlyStart    = hmToDate(dateYmd, '11:30');
 
-  return { none: false, start: lunchStart, end: lunchEnd };
+  // 1. Ideal window: 12:00-1:30
+  for (const g of usableGaps) {
+    const slot = slotWithin(g, primaryStart, primaryEnd);
+    if (slot) return { none: false, start: slot.start, end: slot.end };
+  }
+  // 2. Secondary: 11:30-12:00
+  for (const g of usableGaps) {
+    const slot = slotWithin(g, earlyStart, primaryStart);
+    if (slot) return { none: false, start: slot.start, end: slot.end };
+  }
+  // 3. Secondary: earliest available slot after 1:30
+  const lateGaps = usableGaps
+    .map(g => ({ start: g.start > primaryEnd ? g.start : primaryEnd, end: g.end }))
+    .filter(g => (g.end - g.start) >= 30*60000)
+    .sort((a,b) => a.start - b.start);
+  if (lateGaps.length) {
+    const g = lateGaps[0];
+    return { none: false, start: g.start, end: new Date(g.start.getTime() + 30*60000) };
+  }
+
+  return { none: true, dayStart: daySessions[0].start, dayEnd: daySessions[daySessions.length-1].end };
 }
 
 /* ── Roster ─────────────────────────────────────────────────── */
@@ -966,7 +998,7 @@ csvFileInput.addEventListener('change', () => {
       const parsed = csvToSessions(reader.result);
       if (!parsed.length) throw new Error('No matching sessions found for the 5 core instructors from ' + SUMMER_START_YMD + ' onward.');
       await set(ref(db, 'sessions'), parsed);
-      csvStatus.textContent = `Uploaded — ${parsed.length} sessions saved for everyone.`;
+      await set(ref(db, 'meta/lastUpload'), { at: Date.now(), by: auth.currentUser.email, count: parsed.length });
     } catch (e) {
       csvStatus.className = 'settings-status err';
       csvStatus.textContent = 'Could not parse CSV: ' + e.message;
