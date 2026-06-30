@@ -30,15 +30,18 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: #2A2A2A; min-height: 100vh; padding-bottom: 60px; }
 
-    /* Lock bar */
-    .lock-bar { background: #20402C; padding: 8px 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .lock-bar input[type="password"] { padding: 6px 10px; border-radius: 6px; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; width: 90px; }
-    .lock-bar button { padding: 6px 12px; border-radius: 6px; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.76rem; font-weight: 500; cursor: pointer; }
-    .lock-btn-unlock { background: var(--pink); color: var(--green); }
-    .lock-btn-view   { background: rgba(255,255,255,0.15); color: var(--white); }
-    .lock-btn-lock   { background: rgba(255,255,255,0.15); color: var(--white); }
-    .lock-status { font-size: 0.74rem; color: rgba(255,255,255,0.7); margin-left: auto; }
-    .lock-status.edit { color: var(--pink); font-weight: 500; }
+    /* Auth */
+    .auth-gate { position: fixed; inset: 0; background: var(--green); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 1000; }
+    .auth-gate-card { background: var(--white); border-radius: 16px; padding: 32px 28px; max-width: 360px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+    .auth-gate-card h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; color: var(--green); margin-bottom: 10px; }
+    .auth-gate-card p { font-size: 0.85rem; color: #777; line-height: 1.45; margin-bottom: 20px; }
+    .btn-google { background: var(--green); color: var(--white); border: none; border-radius: 8px; padding: 11px 20px; font-family: 'DM Sans', sans-serif; font-size: 0.86rem; font-weight: 500; cursor: pointer; width: 100%; }
+    .btn-google:active { opacity: 0.85; }
+    .gate-error { font-size: 0.78rem; color: var(--overdue); margin-top: 14px; min-height: 18px; }
+
+    .auth-bar { background: #20402C; padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .auth-bar-email { font-size: 0.74rem; color: rgba(255,255,255,0.75); }
+    .auth-bar-signout { margin-left: auto; padding: 6px 12px; border-radius: 6px; border: none; background: rgba(255,255,255,0.15); color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.76rem; cursor: pointer; }
 
     header { background: var(--green); padding: 22px 24px 18px; }
     .header-top { margin-bottom: 14px; }
@@ -136,11 +139,20 @@
 </head>
 <body>
 
-<div class="lock-bar" id="lockBar">
-  <input type="password" id="pinInput" placeholder="PIN" />
-  <button class="lock-btn-unlock" id="unlockBtn">Unlock to edit</button>
-  <button class="lock-btn-view" id="viewOnlyBtn">View only</button>
-  <span class="lock-status" id="lockStatus">Viewing — read only</span>
+<div class="auth-gate" id="authGate">
+  <div class="auth-gate-card">
+    <h2>Wildewood Summer Schedule</h2>
+    <p>Sign in with your @wildewoodeducation.com Google account to view or edit the shared schedule.</p>
+    <button class="btn-google" id="gateSignInBtn">Sign in with Google</button>
+    <div class="gate-error" id="gateError"></div>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
+
+<div class="auth-bar" id="authBar">
+  <span class="auth-bar-email" id="authBarEmail"></span>
+  <button class="auth-bar-signout" id="signOutBtn">Sign out</button>
 </div>
 
 <header>
@@ -167,28 +179,31 @@
     </button>
     <div class="settings-body" id="settingsBody">
       <label>Upload Teachworks lesson export (.csv) — replaces the shared schedule for everyone</label>
-      <input type="file" id="csvFileInput" class="csv-file-input" accept=".csv" disabled />
+      <input type="file" id="csvFileInput" class="csv-file-input" accept=".csv" />
       <div class="settings-status" id="csvStatus"></div>
 
       <div class="settings-divider"></div>
 
       <label>Teachworks account calendar URL (Focus Time blocks)</label>
-      <input type="url" id="calUrlInput" placeholder="https://wildewoodeducation.teachworks.com/icalendar/account/…" disabled />
+      <input type="url" id="calUrlInput" placeholder="https://wildewoodeducation.teachworks.com/icalendar/account/…" />
       <div class="settings-actions">
-        <button class="btn-primary" id="saveCalBtn" disabled>Save & load</button>
+        <button class="btn-primary" id="saveCalBtn">Save & load</button>
         <button class="btn-ghost" id="refreshCalBtn">Refresh now</button>
       </div>
       <div class="settings-status" id="calStatus"></div>
-      <div class="settings-note">Lesson data lives in a shared Firebase database — anyone who uploads a new CSV updates it live for all 5 of you. Focus Time blocks load live from the calendar URL above. Unlock with the PIN at the top to edit either.</div>
+      <div class="settings-note">Lesson data lives in a shared Firebase database — anyone who uploads a new CSV updates it live for all 5 of you. Focus Time blocks load live from the calendar URL above. Only signed-in @wildewoodeducation.com accounts can read or write any of this.</div>
     </div>
   </div>
 </main>
+
+</div>
 
 <script type="module">
 'use strict';
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBLPlKE7wjcMbv6BXtOzXZhcN8ZMJgafJE",
@@ -201,10 +216,17 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const db = getDatabase(fbApp);
+const auth = getAuth(fbApp);
 
-const PROXY_URL    = 'https://canvas-proxy.shaina-4f5.workers.dev';
-const CORRECT_PIN  = '7532';
-const UNLOCK_KEY   = 'ww_unlocked_v1';
+const ALLOWED_DOMAIN = 'wildewoodeducation.com';
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ hd: ALLOWED_DOMAIN });
+
+function isAllowedUser(user) {
+  return !!user && !!user.email && user.email.toLowerCase().endsWith('@' + ALLOWED_DOMAIN);
+}
+
+const PROXY_URL = 'https://canvas-proxy.shaina-4f5.workers.dev';
 
 /* ── Instructors ────────────────────────────────────────────── */
 const INSTRUCTORS = [
@@ -466,30 +488,33 @@ let activeInstr = 'all';
 let viewMode    = 'week';
 let weekOffset  = 0;
 let monthOffset = 0;
-let isUnlocked  = sessionStorage.getItem(UNLOCK_KEY) === '1';
+let firebaseListenersStarted = false;
 
-/* ── Firebase: sessions ─────────────────────────────────────── */
-get(ref(db, 'sessions')).then(snap => {
-  if (!snap.exists()) set(ref(db, 'sessions'), SEED_SESSIONS);
-});
-onValue(ref(db, 'sessions'), snap => {
-  const val = snap.val();
-  if (val) SESSIONS = sessionsFromRaw(Object.values(val));
-  render();
-});
+/* ── Firebase: data subscriptions (only start once signed in) ─ */
+function startFirebaseListeners() {
+  if (firebaseListenersStarted) return;
+  firebaseListenersStarted = true;
 
-/* ── Firebase: sub flags ────────────────────────────────────── */
-onValue(ref(db, 'subFlags'), snap => {
-  subFlags = snap.val() || {};
-  render();
-});
+  get(ref(db, 'sessions')).then(snap => {
+    if (!snap.exists()) set(ref(db, 'sessions'), SEED_SESSIONS);
+  });
+  onValue(ref(db, 'sessions'), snap => {
+    const val = snap.val();
+    if (val) SESSIONS = sessionsFromRaw(Object.values(val));
+    render();
+  });
 
-/* ── Firebase: shared calendar URL setting ──────────────────── */
-onValue(ref(db, 'settings/calendarUrl'), snap => {
-  const url = snap.val() || '';
-  calUrlInput.value = url;
-  if (url) loadFocusAndRender('Loading');
-});
+  onValue(ref(db, 'subFlags'), snap => {
+    subFlags = snap.val() || {};
+    render();
+  });
+
+  onValue(ref(db, 'settings/calendarUrl'), snap => {
+    const url = snap.val() || '';
+    calUrlInput.value = url;
+    if (url) loadFocusAndRender('Loading');
+  });
+}
 
 /* ── iCal fetch + parse (Focus Time detection) ─────────────── */
 async function fetchFocusEvents(url) {
@@ -785,7 +810,7 @@ function renderRoster(container, code) {
     item.innerHTML = `
       <span class="roster-name">${student}</span>
       <span class="roster-count">${count} session${count>1?'s':''}</span>
-      <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''} ${isUnlocked?'':'disabled'}/> subbing</label>`;
+      <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''}/> subbing</label>`;
     item.querySelector('input').addEventListener('change', e => {
       set(ref(db, `subFlags/${key}`), e.target.checked ? true : null);
       item.classList.toggle('is-sub', e.target.checked);
@@ -859,39 +884,44 @@ function render() {
   if (viewMode === 'week') renderWeek(); else renderMonth();
 }
 
-/* ── PIN lock ───────────────────────────────────────────────── */
-const pinInput = document.getElementById('pinInput');
-const lockStatus = document.getElementById('lockStatus');
+/* ── Auth gate ──────────────────────────────────────────────── */
 const csvFileInput = document.getElementById('csvFileInput');
-const calUrlInputForLock = () => document.getElementById('calUrlInput');
-const saveCalBtnForLock = () => document.getElementById('saveCalBtn');
+const authGate = document.getElementById('authGate');
+const appRoot = document.getElementById('appRoot');
+const gateError = document.getElementById('gateError');
+const authBarEmail = document.getElementById('authBarEmail');
 
-function applyLockUI() {
-  csvFileInput.disabled = !isUnlocked;
-  calUrlInputForLock().disabled = !isUnlocked;
-  saveCalBtnForLock().disabled = !isUnlocked;
-  lockStatus.textContent = isUnlocked ? '🔓 Edit mode' : 'Viewing — read only';
-  lockStatus.className = `lock-status${isUnlocked ? ' edit' : ''}`;
+function showGate(message) {
+  appRoot.style.display = 'none';
+  authGate.style.display = 'flex';
+  gateError.textContent = message || '';
+}
+function showApp(user) {
+  authGate.style.display = 'none';
+  appRoot.style.display = 'block';
+  authBarEmail.textContent = `Signed in as ${user.email}`;
+  startFirebaseListeners();
   render();
 }
 
-document.getElementById('unlockBtn').addEventListener('click', () => {
-  if (pinInput.value.trim() === CORRECT_PIN) {
-    isUnlocked = true;
-    sessionStorage.setItem(UNLOCK_KEY, '1');
-    pinInput.value = '';
-    applyLockUI();
+document.getElementById('gateSignInBtn').addEventListener('click', () => {
+  gateError.textContent = '';
+  signInWithPopup(auth, googleProvider).catch(e => {
+    gateError.textContent = 'Sign-in failed: ' + e.message;
+  });
+});
+document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, user => {
+  if (isAllowedUser(user)) {
+    showApp(user);
+  } else if (user) {
+    showGate('Please sign in with your @wildewoodeducation.com account.');
+    signOut(auth);
   } else {
-    lockStatus.textContent = 'Wrong PIN';
-    lockStatus.className = 'lock-status err';
+    showGate('');
   }
 });
-document.getElementById('viewOnlyBtn').addEventListener('click', () => {
-  isUnlocked = false;
-  sessionStorage.removeItem(UNLOCK_KEY);
-  applyLockUI();
-});
-applyLockUI();
 
 /* ── Settings ───────────────────────────────────────────────── */
 document.getElementById('settingsToggle').addEventListener('click', () => {
@@ -920,14 +950,12 @@ async function loadFocusAndRender(statusPrefix) {
 }
 
 document.getElementById('saveCalBtn').addEventListener('click', () => {
-  if (!isUnlocked) return;
   set(ref(db, 'settings/calendarUrl'), calUrlInput.value.trim());
   loadFocusAndRender('Loading');
 });
 document.getElementById('refreshCalBtn').addEventListener('click', () => loadFocusAndRender('Refreshing'));
 
 csvFileInput.addEventListener('change', () => {
-  if (!isUnlocked) return;
   const file = csvFileInput.files[0];
   if (!file) return;
   csvStatus.className = 'settings-status';
@@ -949,8 +977,6 @@ csvFileInput.addEventListener('change', () => {
   reader.readAsText(file);
 });
 
-/* ── Init ───────────────────────────────────────────────────── */
-render();
 </script>
 </body>
 </html>
