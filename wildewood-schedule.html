@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wildewood Summer Schedule</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --pink:   #FAC0D1;
+      --green:  #2D5A3D;
+      --sage:   #7A9E87;
+      --cream:  #FDF8F5;
+      --white:  #FFFFFF;
+      --shadow: 0 2px 12px rgba(0,0,0,0.07);
+      --r-card: 12px;
+      --r-pill: 20px;
+
+      --qc:   #4A90D9;
+      --jg:   #9B59B6;
+      --ts:   #16A085;
+      --jp:   #D68910;
+      --slfa: #C2185B;
+
+      --overdue: #C0392B;
+      --focus:   #B0A8C8;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: #2A2A2A; min-height: 100vh; padding-bottom: 60px; }
+
+    header { background: var(--green); padding: 22px 24px 18px; }
+    .header-top { margin-bottom: 14px; }
+    .header-title h1 { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 500; color: var(--white); line-height: 1.1; }
+    .header-title p { font-size: 0.75rem; color: rgba(255,255,255,0.65); margin-top: 4px; }
+
+    .instructor-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .instr-tab { padding: 6px 12px; border-radius: var(--r-pill); border: 1.5px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); font-family: 'DM Sans', sans-serif; font-size: 0.76rem; font-weight: 500; color: rgba(255,255,255,0.8); cursor: pointer; }
+    .instr-tab.active { background: var(--white); border-color: var(--white); }
+
+    .view-toggle { display: flex; gap: 4px; }
+    .view-btn { flex: 1; padding: 7px 6px; background: rgba(255,255,255,0.12); border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: rgba(255,255,255,0.7); cursor: pointer; }
+    .view-btn.active { background: var(--white); color: var(--green); font-weight: 500; }
+
+    main { padding: 16px 16px 0; }
+
+    .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .week-nav-label { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; font-weight: 500; color: var(--green); }
+    .week-nav-btns { display: flex; gap: 8px; align-items: center; }
+    .week-arrow-btn { background: var(--white); border: 1.5px solid #ddd; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; color: var(--green); }
+    .today-btn { background: var(--green); color: var(--white); border: none; border-radius: 8px; padding: 0 12px; height: 32px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 500; cursor: pointer; }
+
+    /* Day group (week view) */
+    .day-group { margin-bottom: 18px; }
+    .day-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .day-name { font-family: 'Cormorant Garamond', serif; font-size: 1rem; font-weight: 500; color: var(--green); white-space: nowrap; }
+    .day-name.today-label { color: var(--overdue); font-weight: 600; }
+    .day-date { font-size: 0.72rem; color: #888; }
+    .day-divider { flex: 1; height: 1px; background: #e0dcd7; }
+    .day-empty { font-size: 0.78rem; color: #bbb; padding: 4px 0 0; }
+
+    .sess-item { background: var(--white); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 9px 12px; margin-bottom: 6px; display: flex; gap: 10px; align-items: center; border-left: 4px solid transparent; }
+    .sess-time { font-size: 0.72rem; color: #888; min-width: 92px; white-space: nowrap; }
+    .sess-instr-tag { font-size: 0.62rem; font-weight: 600; color: var(--white); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+    .sess-title { font-size: 0.82rem; color: #2A2A2A; flex: 1; }
+
+    .sess-item.focus { background: rgba(176,168,200,0.12); border-left-color: var(--focus); }
+    .sess-item.focus .sess-title { color: #6c6580; font-style: italic; }
+    .sess-item.lunch { background: rgba(122,158,135,0.12); border: 1.5px dashed var(--sage); border-left: 1.5px dashed var(--sage); }
+    .sess-item.lunch .sess-title { color: var(--sage); font-weight: 500; }
+    .sess-item.gap-warn { background: #FFF3CD; border-left-color: #F0C84A; }
+    .sess-item.gap-warn .sess-title { color: #7A5C00; font-size: 0.76rem; }
+
+    /* Roster */
+    .roster-section { margin-top: 22px; }
+    .roster-title { font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; font-weight: 500; color: var(--green); margin-bottom: 10px; }
+    .roster-item { background: var(--white); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 9px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+    .roster-name { flex: 1; font-size: 0.84rem; }
+    .roster-count { font-size: 0.7rem; color: #999; white-space: nowrap; }
+    .roster-sub-toggle { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: #aaa; cursor: pointer; white-space: nowrap; }
+    .roster-sub-toggle input { accent-color: var(--sage); }
+    .roster-item.is-sub { opacity: 0.7; }
+    .roster-item.is-sub .roster-name::after { content: ' (subbing)'; color: #bbb; font-size: 0.72rem; font-weight: 400; }
+
+    /* Month view */
+    .month-label { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; font-weight: 500; color: var(--green); text-align: center; margin-bottom: 12px; }
+    .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .month-dow { font-size: 0.6rem; color: #999; text-align: center; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .month-cell { background: var(--white); border-radius: 8px; min-height: 56px; padding: 4px 5px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; }
+    .month-cell.outside { background: transparent; box-shadow: none; cursor: default; }
+    .month-cell.today { border: 2px solid var(--overdue); }
+    .month-cell-date { font-size: 0.68rem; color: #999; margin-bottom: 3px; }
+    .month-dots { display: flex; flex-wrap: wrap; gap: 2px; margin-top: auto; }
+    .month-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .month-count { font-size: 0.6rem; color: #bbb; margin-top: 2px; }
+
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: #888; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+    .empty-state { text-align: center; padding: 30px 20px; color: #aaa; font-size: 0.85rem; }
+
+    /* Settings */
+    .settings-section { margin-top: 26px; }
+    .settings-toggle { width: 100%; background: transparent; border: none; border-top: 1px solid #e0dcd7; padding: 14px 0 4px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: #888; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 6px; }
+    .settings-toggle .chevron { transition: transform 0.2s; }
+    .settings-toggle.open .chevron { transform: rotate(180deg); }
+    .settings-body { display: none; padding: 14px 0 0; }
+    .settings-body.open { display: block; }
+    .settings-body label { display: block; font-size: 0.78rem; color: #555; margin-bottom: 5px; }
+    .settings-body input[type="url"] { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; background: var(--white); margin-bottom: 10px; }
+    .settings-body input:focus { outline: none; border-color: var(--sage); }
+    .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-primary { padding: 9px 18px; background: var(--green); color: var(--white); border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500; cursor: pointer; }
+    .btn-ghost { padding: 9px 14px; background: transparent; color: #999; border: 1.5px solid #ddd; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; }
+    .settings-status { font-size: 0.78rem; color: var(--sage); margin-top: 8px; min-height: 18px; }
+    .settings-status.err { color: var(--overdue); }
+    .settings-note { font-size: 0.72rem; color: #aaa; margin-top: 10px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="header-title">
+      <h1>Wildewood Summer Schedule</h1>
+      <p id="headerSub">Jul 6 – Aug 31 · 2026</p>
+    </div>
+  </div>
+  <div class="instructor-tabs" id="instructorTabs"></div>
+  <div class="view-toggle">
+    <button class="view-btn active" data-mode="week">Week</button>
+    <button class="view-btn" data-mode="month">Month</button>
+  </div>
+</header>
+
+<main>
+  <div id="content"></div>
+
+  <div class="settings-section">
+    <button class="settings-toggle" id="settingsToggle">
+      <span>⚙ Settings</span>
+      <span class="chevron">▾</span>
+    </button>
+    <div class="settings-body" id="settingsBody">
+      <label>Teachworks account calendar URL (Focus Time blocks)</label>
+      <input type="url" id="calUrlInput" placeholder="https://wildewoodeducation.teachworks.com/icalendar/account/…" />
+      <div class="settings-actions">
+        <button class="btn-primary" id="saveCalBtn">Save & load</button>
+        <button class="btn-ghost" id="refreshCalBtn">Refresh now</button>
+      </div>
+      <div class="settings-status" id="calStatus"></div>
+      <div class="settings-note">Lesson data is refreshed manually from Teachworks exports — send an updated CSV any time and it'll be rebuilt into this page. Focus Time blocks load live from the calendar URL above.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+const PROXY_URL = 'https://canvas-proxy.shaina-4f5.workers.dev';
+const CAL_KEY   = 'ww_account_cal_url_v1';
+const SUB_KEY   = 'ww_sub_flags_v1';
+
+/* ── Instructors ────────────────────────────────────────────── */
+const INSTRUCTORS = [
+  { code: 'QC',   name: 'Quinn Cantor',      color: 'var(--qc)'   },
+  { code: 'JG',   name: 'Joelle Glazer',     color: 'var(--jg)'   },
+  { code: 'TS',   name: 'Tara Shuman',       color: 'var(--ts)'   },
+  { code: 'JP',   name: 'Josh Perrotton',    color: 'var(--jp)'   },
+  { code: 'SLFA', name: 'Shaina Fils-Aime',  color: 'var(--slfa)' },
+];
+const INSTR_BY_CODE = {};
+INSTRUCTORS.forEach(i => INSTR_BY_CODE[i.code] = i);
+
+/* ── Session data (from Teachworks LessonSummary export, Jul 6 – Aug 31 2026) ── */
+const RAW_SESSIONS = [
+  ["2026-07-06","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-07-06","09:30","10:30","JP","Elise Donnino","Elise Donnino - ACT (ELA)"],
+  ["2026-07-06","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
+  ["2026-07-06","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-06","13:00","14:00","JP","Owen Fengler","Owen Fengler"],
+  ["2026-07-06","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick - Assessment"],
+  ["2026-07-06","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-07-06","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-07-06","17:00","18:00","TS","Allison Flynn","Allison Flynn - ACT"],
+  ["2026-07-06","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-07-06","18:00","19:00","TS","Jealisse Jason","Jealisse Jason - CL #4"],
+  ["2026-07-07","10:00","11:00","SLFA","Olivia Feldman","Olivia Feldman - SAT (Math)"],
+  ["2026-07-07","10:30","11:30","TS","Jake Fossella","Jake Fossella - SAT"],
+  ["2026-07-07","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-07","16:00","17:00","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-08","09:30","10:30","TS","Elise Donnino","Elise Donnino - ACT (Math)"],
+  ["2026-07-08","10:00","11:00","QC","Kyle Sullivan","Kyle Sullivan - AP Boost (Calc)"],
+  ["2026-07-08","11:00","12:00","TS","Brynn Midura","Midura - CL #3"],
+  ["2026-07-08","11:00","12:00","TS","Benjamin Midura","Midura - CL #3"],
+  ["2026-07-08","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-08","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick"],
+  ["2026-07-08","16:30","17:30","QC","Olivia Alex","Olivia Alex - Geometry"],
+  ["2026-07-08","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-07-08","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-07-08","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-07-09","10:00","11:00","TS","Olivia Feldman","Olivia Feldman - SAT (ELA)"],
+  ["2026-07-09","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-09","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-09","17:00","18:00","JG","Joshua Douglas","Joshua Douglas - Reading"],
+  ["2026-07-10","10:30","11:30","JG","Declan Morrissey","Declan Morrissey - ISEE Verbal"],
+  ["2026-07-10","10:30","11:30","SLFA","Dominic Ciancarelli","Dominic Ciancarelli - ISEE (Math)"],
+  ["2026-07-10","11:30","12:30","JG","Juliet Gallinaro","Juliet Gallinaro"],
+  ["2026-07-13","09:30","10:30","JP","Olivia corbett","Olivia Corbett - SAT (ELA)"],
+  ["2026-07-13","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-07-13","09:30","10:30","TS","Ali Namozov","Ali Namozov - SAT (ELA)"],
+  ["2026-07-13","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
+  ["2026-07-13","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-13","12:00","13:00","JP","Elliott Blanchard","Elliott Blanchard - CL #4 (but need to cover Intro to College Essay)"],
+  ["2026-07-13","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-07-13","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick"],
+  ["2026-07-13","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-07-13","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-07-13","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-07-14","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-07-14","10:00","11:00","SLFA","Olivia Feldman","Olivia Feldman - SAT (Math)"],
+  ["2026-07-14","10:30","11:30","TS","Jake Fossella","Jake Fossella - SAT"],
+  ["2026-07-14","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-14","13:00","14:00","SLFA","Kaelyn Kotfila","Kaelyn Kotfila - SAT (Math)"],
+  ["2026-07-14","16:00","17:00","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-14","17:00","18:00","JG","Dominic Ciancarelli","Dominic Ciancarelli - ISEE (ELA)"],
+  ["2026-07-15","09:30","10:30","QC","Olivia corbett","Olivia Corbett - SAT (Math)"],
+  ["2026-07-15","09:30","10:30","TS","Ali Namozov","Ali Namozov - SAT (ELA)"],
+  ["2026-07-15","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-15","11:00","12:00","JP","Owen Fengler","Owen Fengler"],
+  ["2026-07-15","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-15","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-07-15","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick"],
+  ["2026-07-15","16:30","17:30","QC","Olivia Alex","Olivia Alex - Geometry"],
+  ["2026-07-15","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-07-15","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-07-15","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-07-16","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-07-16","09:30","10:30","SLFA","Ali Namozov","Ali Namozov - SAT (Math)"],
+  ["2026-07-16","10:00","11:00","TS","Olivia Feldman","Olivia Feldman - SAT (ELA)"],
+  ["2026-07-16","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-16","17:00","18:00","JG","Joshua Douglas","Joshua Douglas - Reading"],
+  ["2026-07-16","17:00","18:00","TS","Lyla Tortorella","Lyla Tortorella - Launch Combo"],
+  ["2026-07-16","18:00","19:00","TS","Jealisse Jason","Jealisse Jason - CL #5"],
+  ["2026-07-17","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-07-17","11:30","12:30","JG","Juliet Gallinaro","Juliet Gallinaro"],
+  ["2026-07-20","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-07-20","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-20","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
+  ["2026-07-20","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-20","13:30","14:30","JP","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-07-20","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick"],
+  ["2026-07-20","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-07-20","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-07-20","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-07-21","09:30","10:30","JP","Owen Fengler","Owen Fengler"],
+  ["2026-07-21","10:00","11:00","QC","Declan Morrissey","Declan Morrissey - ISEE Math"],
+  ["2026-07-21","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-21","13:00","14:00","SLFA","Kaelyn Kotfila","Kaelyn Kotfila - SAT (Math)"],
+  ["2026-07-21","17:00","18:00","JG","Dominic Ciancarelli","Dominic Ciancarelli - ISEE (ELA)"],
+  ["2026-07-22","10:00","11:00","QC","Kyle Sullivan","Kyle Sullivan - AP Boost (Calc)"],
+  ["2026-07-22","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-22","13:30","14:30","JP","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-07-22","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick"],
+  ["2026-07-22","16:30","17:30","QC","Olivia Alex","Olivia Alex - Geometry"],
+  ["2026-07-22","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-07-22","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-07-22","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-07-23","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-07-23","09:30","10:30","SLFA","Ali Namozov","Ali Namozov - SAT (Math)"],
+  ["2026-07-23","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-23","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-23","17:00","18:00","JG","Joshua Douglas","Joshua Douglas - Reading"],
+  ["2026-07-23","17:00","18:00","SLFA","Lyla Tortorella","Lyla Tortorella - Launch Combo"],
+  ["2026-07-24","10:30","11:30","JG","Declan Morrissey","Declan Morrissey - ISEE Verbal"],
+  ["2026-07-24","11:30","12:30","JG","Juliet Gallinaro","Juliet Gallinaro"],
+  ["2026-07-24","13:30","14:30","JG","Eliza Gange","Eliza Gange - CL #2"],
+  ["2026-07-27","09:30","10:30","TS","Olivia corbett","Olivia Corbett - SAT (ELA)"],
+  ["2026-07-27","10:00","11:00","QC","Declan Morrissey","Declan Morrissey - ISEE Math"],
+  ["2026-07-27","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
+  ["2026-07-27","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-27","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-07-27","15:00","16:00","TS","Allison Flynn","Allison Flynn - ACT"],
+  ["2026-07-28","10:00","11:00","SLFA","Olivia Feldman","Olivia Feldman - SAT (Math)"],
+  ["2026-07-28","10:00","11:00","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-28","10:30","11:30","TS","Jake Fossella","Jake Fossella - SAT"],
+  ["2026-07-28","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-29","09:30","10:30","QC","Olivia corbett","Olivia Corbett - SAT (Math)"],
+  ["2026-07-29","09:30","10:30","SLFA","Ali Namozov","Ali Namozov - SAT (Math)"],
+  ["2026-07-29","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-29","13:00","14:00","SLFA","Kaelyn Kotfila","Kaelyn Kotfila - SAT (Math)"],
+  ["2026-07-29","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-07-29","15:30","16:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-07-29","16:30","17:30","QC","Olivia Alex","Olivia Alex - Geometry"],
+  ["2026-07-30","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-07-30","09:30","10:30","SLFA","Ali Namozov","Ali Namozov - SAT (Math)"],
+  ["2026-07-30","10:00","11:00","TS","Olivia Feldman","Olivia Feldman - SAT (ELA)"],
+  ["2026-07-30","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-07-30","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-07-31","10:00","11:00","QC","Kyle Sullivan","Kyle Sullivan - AP Boost (Calc)"],
+  ["2026-07-31","10:30","11:30","JG","Declan Morrissey","Declan Morrissey - ISEE Verbal"],
+  ["2026-07-31","10:30","11:30","SLFA","Dominic Ciancarelli","Dominic Ciancarelli - ISEE (Math)"],
+  ["2026-07-31","11:30","12:30","JG","Juliet Gallinaro","Juliet Gallinaro"],
+  ["2026-07-31","13:00","14:00","SLFA","Kaelyn Kotfila","Kaelyn Kotfila - SAT (Math)"],
+  ["2026-08-03","09:30","10:30","JP","Olivia corbett","Olivia Corbett - SAT (ELA)"],
+  ["2026-08-03","09:30","10:30","TS","Ali Namozov","Ali Namozov - SAT (ELA)"],
+  ["2026-08-03","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
+  ["2026-08-03","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-03","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-08-03","14:00","15:00","JG","Eliza Gange","Eliza Gange - CL #3"],
+  ["2026-08-03","15:00","16:00","TS","Allison Flynn","Allison Flynn - ACT"],
+  ["2026-08-03","17:00","18:00","JG","Joshua Douglas","Joshua Douglas - Reading"],
+  ["2026-08-04","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-08-04","10:00","11:00","SLFA","Olivia Feldman","Olivia Feldman - SAT (Math)"],
+  ["2026-08-04","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-08-04","10:30","11:30","TS","Jake Fossella","Jake Fossella - SAT"],
+  ["2026-08-04","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-05","09:30","10:30","QC","Olivia corbett","Olivia Corbett - SAT (Math)"],
+  ["2026-08-05","11:00","12:00","JP","Owen Fengler","Owen Fengler"],
+  ["2026-08-05","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-05","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-08-05","16:30","17:30","QC","Olivia Alex","Olivia Alex - Geometry"],
+  ["2026-08-05","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-08-05","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-08-05","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-08-06","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-08-06","09:30","10:30","SLFA","Ali Namozov","Ali Namozov - SAT (Math)"],
+  ["2026-08-06","10:00","11:00","TS","Olivia Feldman","Olivia Feldman - SAT (ELA)"],
+  ["2026-08-06","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-08-06","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-06","17:00","18:00","TS","Lyla Tortorella","Lyla Tortorella - Launch Combo"],
+  ["2026-08-07","10:00","11:00","QC","Kyle Sullivan","Kyle Sullivan - AP Boost (Calc)"],
+  ["2026-08-10","09:30","10:30","JP","Olivia corbett","Olivia Corbett - SAT (ELA)"],
+  ["2026-08-10","09:30","10:30","TS","Ali Namozov","Ali Namozov - SAT (ELA)"],
+  ["2026-08-10","10:00","11:00","QC","Declan Morrissey","Declan Morrissey - ISEE Math"],
+  ["2026-08-10","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
+  ["2026-08-10","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-10","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (Practice Test, ELA Only)"],
+  ["2026-08-10","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick"],
+  ["2026-08-10","17:00","18:00","JG","Joshua Douglas","Joshua Douglas - Reading"],
+  ["2026-08-11","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-08-11","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-08-11","10:30","11:30","TS","Jake Fossella","Jake Fossella - SAT"],
+  ["2026-08-11","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-11","14:00","15:00","QC","Declan Quinn","Declan Quinn"],
+  ["2026-08-12","09:30","10:30","QC","Olivia corbett","Olivia Corbett - SAT (Math)"],
+  ["2026-08-12","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-12","12:00","13:00","QC","Olivia Alex","Olivia Alex - Geometry"],
+  ["2026-08-12","13:30","14:30","TS","Rose Harrington","Rosie Harrington - SAT (ELA)"],
+  ["2026-08-12","14:00","15:00","QC","Declan Quinn","Declan Quinn"],
+  ["2026-08-12","15:00","16:00","QC","Finn McGoldrick","Finn McGoldrick"],
+  ["2026-08-13","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-08-13","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-13","17:00","18:00","TS","Lyla Tortorella","Lyla Tortorella - Launch Combo"],
+  ["2026-08-14","10:00","11:00","QC","Kyle Sullivan","Kyle Sullivan - AP Boost (Calc)"],
+  ["2026-08-14","10:30","11:30","JG","Declan Morrissey","Declan Morrissey - ISEE Verbal"],
+  ["2026-08-14","13:00","14:00","QC","Kaelyn Kotfila","Kaelyn Kotfila - SAT (Math)"],
+  ["2026-08-14","14:00","15:00","JG","Joshua Goon","Joshua Goon - CL #2"],
+  ["2026-08-17","09:30","10:30","JP","Olivia corbett","Olivia Corbett - SAT (ELA)"],
+  ["2026-08-17","09:30","10:30","TS","Ali Namozov","Ali Namozov - SAT (ELA)"],
+  ["2026-08-17","11:00","12:30","TS","Allison Boynton","Allison Boynton"],
+  ["2026-08-17","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-17","15:00","16:00","TS","Allison Flynn","Allison Flynn - ACT"],
+  ["2026-08-17","17:00","18:00","JG","Joshua Douglas","Joshua Douglas - Reading"],
+  ["2026-08-17","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-08-18","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-08-18","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-18","13:00","14:00","SLFA","Kaelyn Kotfila","Kaelyn Kotfila - SAT (Math)"],
+  ["2026-08-19","09:30","10:30","QC","Olivia corbett","Olivia Corbett - SAT (Math)"],
+  ["2026-08-19","11:00","12:00","JP","Owen Fengler","Owen Fengler"],
+  ["2026-08-19","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-19","16:30","17:30","QC","Olivia Alex","Olivia Alex - Geometry"],
+  ["2026-08-19","17:00","18:00","JG","Andrew Haughton","Andrew Haughton - Summer Bridge"],
+  ["2026-08-19","17:00","18:00","SLFA","Ryan Haughton","Ryan Haughton - Summer Bridge"],
+  ["2026-08-19","18:00","19:00","SLFA","Sheila Fortune","Sheila Fortune - SAT"],
+  ["2026-08-20","09:00","10:00","TS","Olivia Feldman","Olivia Feldman - SAT (ELA)"],
+  ["2026-08-20","09:30","10:30","QC","Lexie Bearce","Lexie Bearce - SAT/Geometry"],
+  ["2026-08-20","10:00","11:00","SLFA","Olivia Feldman","Olivia Feldman - SAT (Math)"],
+  ["2026-08-20","10:30","11:30","QC","Robynne Perez","Robynne Perez"],
+  ["2026-08-20","11:00","13:00","JG","Micah Herman","Micah Herman"],
+  ["2026-08-20","17:00","18:00","JG","Lyla Tortorella","Lyla Tortorella - Launch Combo"],
+  ["2026-08-21","10:00","11:00","QC","Kyle Sullivan","Kyle Sullivan - AP Boost (Calc)"],
+  ["2026-08-21","13:00","14:00","SLFA","Kaelyn Kotfila","Kaelyn Kotfila - SAT (Math)"],
+  ["2026-08-21","14:00","15:00","JG","Joshua Goon","Joshua Goon - CL #3"],
+  ["2026-08-24","10:00","11:00","QC","Declan Morrissey","Declan Morrissey- ISEE Math"],
+  ["2026-08-24","17:00","18:00","JG","Joshua Douglas","Joshua Douglas - Reading"],
+  ["2026-08-25","09:30","10:30","QC","Hailey Sullivan","Hailey Sullivan"],
+  ["2026-08-25","14:00","15:00","QC","Declan Quinn","Declan Quinn"],
+  ["2026-08-26","14:00","15:00","QC","Declan Quinn","Declan Quinn"],
+  ["2026-08-28","10:30","11:30","JG","Declan Morrissey","Declan Morrissey  - ISEE Verbal"],
+  ["2026-08-31","10:00","11:00","QC","Declan Morrissey","Declan Morrissey - ISEE Math"],
+];
+
+/* ── Helpers ────────────────────────────────────────────────── */
+function ymdToDate(ymd) { const [y,m,d] = ymd.split('-').map(Number); return new Date(y,m-1,d); }
+function hmToDate(dateYmd, hm) { const [y,m,d] = dateYmd.split('-').map(Number); const [h,mi] = hm.split(':').map(Number); return new Date(y,m-1,d,h,mi); }
+function toYMD(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function today() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function mondayOf(d) { const c = new Date(d); const dow = c.getDay(); c.setDate(c.getDate() + (dow===0 ? -6 : 1-dow)); return c; }
+function isSameDay(a,b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function formatShortDate(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+function formatDayHeading(d) { return d.toLocaleDateString('en-US', { weekday: 'long' }); }
+function formatTime(d) { let h=d.getHours(), m=d.getMinutes(), ap=h>=12?'pm':'am'; h=h%12||12; return `${h}${m?':'+String(m).padStart(2,'0'):''}${ap}`; }
+
+const SESSIONS = RAW_SESSIONS.map(([date, start, end, code, student, title], i) => ({
+  id: 'sess-' + i,
+  date,
+  start: hmToDate(date, start),
+  end: hmToDate(date, end),
+  code, student, title,
+}));
+
+const SUMMER_START = ymdToDate('2026-07-06');
+const SUMMER_END   = ymdToDate('2026-08-31');
+
+/* ── State ──────────────────────────────────────────────────── */
+let activeInstr = 'all';
+let viewMode    = 'week';
+let weekOffset  = 0;
+let monthOffset = 0;
+let focusEvents = []; // loaded live from Teachworks account calendar
+
+/* ── localStorage ───────────────────────────────────────────── */
+function loadSubFlags() { return JSON.parse(localStorage.getItem(SUB_KEY) || '{}'); }
+function saveSubFlags(o) { localStorage.setItem(SUB_KEY, JSON.stringify(o)); }
+function loadCalUrl() { return localStorage.getItem(CAL_KEY) || ''; }
+function saveCalUrl(u) { localStorage.setItem(CAL_KEY, u); }
+
+/* ── iCal fetch + parse (Focus Time detection) ─────────────── */
+async function fetchFocusEvents() {
+  const url = loadCalUrl();
+  if (!url) return [];
+  const res = await fetch(`${PROXY_URL}/calendar`, { headers: { 'X-Calendar-URL': url } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  const events = parseICS(text);
+  const out = [];
+  for (const ev of events) {
+    const summary = (ev.summary || '');
+    if (!/focus\s*time/i.test(summary)) continue;
+    let code = null;
+    for (const instr of INSTRUCTORS) {
+      const re = new RegExp(`\\b${instr.code}\\b`, 'i');
+      if (re.test(summary)) { code = instr.code; break; }
+    }
+    if (!code && ev.organizer) {
+      for (const instr of INSTRUCTORS) {
+        const last = instr.name.split(' ').pop().toLowerCase();
+        if ((ev.organizer || '').toLowerCase().includes(last)) { code = instr.code; break; }
+      }
+    }
+    if (!code) continue;
+    out.push({ code, start: ev.start, end: ev.end, summary });
+  }
+  return out;
+}
+
+function parseICS(text) {
+  text = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').replace(/\r\n/g, '\n');
+  const lines = text.split('\n');
+  const events = [];
+  let cur = null;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
+    if (line === 'END:VEVENT') { if (cur && cur.start && cur.end) events.push(cur); cur = null; continue; }
+    if (!cur) continue;
+    const colon = line.indexOf(':');
+    if (colon === -1) continue;
+    const key = line.slice(0, colon).toUpperCase();
+    const val = line.slice(colon + 1);
+    if (key === 'SUMMARY') cur.summary = icsUnescape(val);
+    else if (key.startsWith('ORGANIZER')) cur.organizer = icsUnescape(val);
+    else if (key.startsWith('DTSTART')) cur.start = parseICSDate(val);
+    else if (key.startsWith('DTEND')) cur.end = parseICSDate(val);
+  }
+  return events.filter(e => e.start && e.end);
+}
+function icsUnescape(s) { return s.replace(/\\,/g,',').replace(/\\;/g,';').replace(/\\n/gi,'\n').replace(/\\\\/g,'\\'); }
+function parseICSDate(val) {
+  val = val.trim();
+  if (val.length === 8) return new Date(+val.slice(0,4), +val.slice(4,6)-1, +val.slice(6,8));
+  const y=+val.slice(0,4), mo=+val.slice(4,6)-1, d=+val.slice(6,8);
+  const h=+val.slice(9,11), m=+val.slice(11,13), s=+val.slice(13,15);
+  if (val.endsWith('Z')) return new Date(Date.UTC(y,mo,d,h,m,s));
+  return new Date(y,mo,d,h,m,s);
+}
+
+/* ── Lunch suggestion ───────────────────────────────────────── */
+function lunchSuggestionFor(code, dateYmd) {
+  const daySessions = SESSIONS.filter(s => s.code === code && s.date === dateYmd).sort((a,b) => a.start - b.start);
+  if (!daySessions.length) return null;
+
+  const dayStart = daySessions[0].start;
+  const dayEnd   = daySessions[daySessions.length-1].end;
+
+  // Merge booked session blocks only (Focus Time does NOT block lunch placement)
+  const merged = [];
+  for (const s of daySessions) {
+    if (merged.length && s.start <= merged[merged.length-1].end) {
+      if (s.end > merged[merged.length-1].end) merged[merged.length-1].end = s.end;
+    } else merged.push({ start: s.start, end: s.end });
+  }
+
+  const gaps = [];
+  let cursor = dayStart;
+  for (const b of merged) {
+    const gapMin = (b.start - cursor) / 60000;
+    if (gapMin >= 30) gaps.push({ start: cursor, end: b.start, minutes: gapMin });
+    if (b.end > cursor) cursor = b.end;
+  }
+
+  if (!gaps.length) return { none: true, dayStart, dayEnd };
+
+  // Prefer gap overlapping midday window (11am-2pm), else first gap
+  const midStart = hmToDate(dateYmd, '11:00'), midEnd = hmToDate(dateYmd, '14:00');
+  let best = gaps.find(g => g.start < midEnd && g.end > midStart) || gaps[0];
+
+  // Place 30-min lunch slot, biased toward midday within the gap
+  let lunchStart = best.start;
+  if (best.start < midStart && best.end > midStart) lunchStart = midStart;
+  let lunchEnd = new Date(lunchStart.getTime() + 30*60000);
+  if (lunchEnd > best.end) { lunchEnd = best.end; lunchStart = new Date(lunchEnd.getTime() - 30*60000); }
+
+  return { none: false, start: lunchStart, end: lunchEnd };
+}
+
+/* ── Roster ─────────────────────────────────────────────────── */
+function rosterFor(code) {
+  const counts = {};
+  SESSIONS.filter(s => s.code === code).forEach(s => { counts[s.student] = (counts[s.student]||0) + 1; });
+  return Object.entries(counts).map(([student, count]) => ({ student, count })).sort((a,b) => b.count - a.count || a.student.localeCompare(b.student));
+}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+function renderTabs() {
+  const el = document.getElementById('instructorTabs');
+  el.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = `instr-tab${activeInstr==='all'?' active':''}`;
+  allBtn.textContent = 'All';
+  allBtn.style.color = activeInstr==='all' ? 'var(--green)' : '';
+  allBtn.addEventListener('click', () => { activeInstr='all'; weekOffset=0; render(); });
+  el.appendChild(allBtn);
+  INSTRUCTORS.forEach(instr => {
+    const b = document.createElement('button');
+    b.className = `instr-tab${activeInstr===instr.code?' active':''}`;
+    b.textContent = instr.code;
+    b.title = instr.name;
+    if (activeInstr === instr.code) b.style.color = instr.color;
+    b.addEventListener('click', () => { activeInstr = instr.code; render(); });
+    el.appendChild(b);
+  });
+}
+
+document.querySelectorAll('.view-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    viewMode = btn.dataset.mode;
+    render();
+  });
+});
+
+/* ── Week view ──────────────────────────────────────────────── */
+function buildDayTimeline(dateYmd, code) {
+  const items = [];
+  SESSIONS.filter(s => s.date === dateYmd && (code==='all' || s.code===code)).forEach(s => {
+    items.push({ type:'session', start: s.start, end: s.end, code: s.code, title: s.title });
+  });
+  focusEvents.filter(f => toYMD(f.start) === dateYmd && (code==='all' || f.code===code)).forEach(f => {
+    items.push({ type:'focus', start: f.start, end: f.end, code: f.code, title: 'Focus Time' });
+  });
+  if (code !== 'all') {
+    const lunch = lunchSuggestionFor(code, dateYmd);
+    if (lunch && !lunch.none) items.push({ type:'lunch', start: lunch.start, end: lunch.end, code, title: 'Suggested lunch' });
+    else if (lunch && lunch.none) items.push({ type:'gap-warn', start: lunch.dayStart, end: lunch.dayStart, code, title: 'No lunch gap found — back-to-back today' });
+  }
+  items.sort((a,b) => a.start - b.start);
+  return items;
+}
+
+function renderSessItem(item) {
+  const div = document.createElement('div');
+  div.className = `sess-item ${item.type === 'gap-warn' ? 'gap-warn' : item.type}`;
+  const instr = INSTR_BY_CODE[item.code];
+  const timeStr = item.type === 'gap-warn' ? '' : `${formatTime(item.start)}–${formatTime(item.end)}`;
+  const tagStyle = instr ? `background:${instr.color}` : '';
+  const tag = (activeInstr === 'all' && instr) ? `<span class="sess-instr-tag" style="${tagStyle}">${instr.code}</span>` : '';
+  div.innerHTML = `<span class="sess-time">${timeStr}</span>${tag}<span class="sess-title">${item.title}</span>`;
+  return div;
+}
+
+function renderWeek() {
+  const td = today();
+  const monday = addDays(mondayOf(td), weekOffset*7);
+  const sunday = addDays(monday, 6);
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div class="week-nav">
+      <span class="week-nav-label">${formatShortDate(monday)} – ${formatShortDate(sunday)}</span>
+      <div class="week-nav-btns">
+        <button class="week-arrow-btn" id="prevWeekBtn">&#8249;</button>
+        <button class="today-btn" id="thisWeekBtn">Today</button>
+        <button class="week-arrow-btn" id="nextWeekBtn">&#8250;</button>
+      </div>
+    </div>
+    <div id="weekDays"></div>
+    <div id="rosterArea"></div>
+  `;
+  document.getElementById('prevWeekBtn').addEventListener('click', () => { weekOffset--; render(); });
+  document.getElementById('nextWeekBtn').addEventListener('click', () => { weekOffset++; render(); });
+  document.getElementById('thisWeekBtn').addEventListener('click', () => { weekOffset=0; render(); });
+
+  if (activeInstr === 'all') {
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    INSTRUCTORS.forEach(i => { legend.innerHTML += `<span class="legend-item"><span class="legend-dot" style="background:${i.color}"></span>${i.code}</span>`; });
+    document.getElementById('weekDays').appendChild(legend);
+  }
+
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    const dk = toYMD(d);
+    const isToday = isSameDay(d, td);
+    const items = buildDayTimeline(dk, activeInstr);
+
+    const grp = document.createElement('div');
+    grp.className = 'day-group';
+    const heading = document.createElement('div'); heading.className = 'day-heading';
+    heading.innerHTML = `<span class="day-name${isToday?' today-label':''}">${isToday?'Today':formatDayHeading(d)}</span><span class="day-date">${formatShortDate(d)}</span><div class="day-divider"></div>`;
+    grp.appendChild(heading);
+
+    if (!items.length) {
+      const empty = document.createElement('div'); empty.className = 'day-empty'; empty.textContent = 'No sessions';
+      grp.appendChild(empty);
+    } else {
+      items.forEach(it => grp.appendChild(renderSessItem(it)));
+    }
+    document.getElementById('weekDays').appendChild(grp);
+  }
+
+  if (activeInstr !== 'all') renderRoster(document.getElementById('rosterArea'), activeInstr);
+}
+
+/* ── Roster render ──────────────────────────────────────────── */
+function renderRoster(container, code) {
+  const roster = rosterFor(code);
+  const subFlags = loadSubFlags();
+  container.innerHTML = `<div class="roster-section"><div class="roster-title">Students this summer (${roster.length})</div><div id="rosterList"></div></div>`;
+  const list = document.getElementById('rosterList');
+  if (!roster.length) { list.innerHTML = '<div class="empty-state">No sessions found.</div>'; return; }
+  roster.forEach(({ student, count }) => {
+    const key = `${code}::${student}`;
+    const isSub = !!subFlags[key];
+    const item = document.createElement('div');
+    item.className = `roster-item${isSub ? ' is-sub' : ''}`;
+    item.innerHTML = `
+      <span class="roster-name">${student}</span>
+      <span class="roster-count">${count} session${count>1?'s':''}</span>
+      <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''}/> subbing</label>`;
+    item.querySelector('input').addEventListener('change', e => {
+      const flags = loadSubFlags();
+      if (e.target.checked) flags[key] = 1; else delete flags[key];
+      saveSubFlags(flags);
+      item.classList.toggle('is-sub', e.target.checked);
+    });
+    list.appendChild(item);
+  });
+}
+
+/* ── Month view ─────────────────────────────────────────────── */
+function renderMonth() {
+  const td = today();
+  const base = new Date(td.getFullYear(), td.getMonth() + monthOffset, 1);
+  const monthLabel = base.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div class="week-nav">
+      <button class="week-arrow-btn" id="prevMonthBtn">&#8249;</button>
+      <span class="month-label" style="margin:0;">${monthLabel}</span>
+      <button class="week-arrow-btn" id="nextMonthBtn">&#8250;</button>
+    </div>
+    <div id="monthLegendArea"></div>
+    <div class="month-grid" id="monthGrid"></div>
+  `;
+  document.getElementById('prevMonthBtn').addEventListener('click', () => { monthOffset--; render(); });
+  document.getElementById('nextMonthBtn').addEventListener('click', () => { monthOffset++; render(); });
+
+  if (activeInstr === 'all') {
+    const legend = document.createElement('div'); legend.className = 'legend';
+    INSTRUCTORS.forEach(i => { legend.innerHTML += `<span class="legend-item"><span class="legend-dot" style="background:${i.color}"></span>${i.code}</span>`; });
+    document.getElementById('monthLegendArea').appendChild(legend);
+  }
+
+  const grid = document.getElementById('monthGrid');
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(dow => {
+    const el = document.createElement('div'); el.className = 'month-dow'; el.textContent = dow; grid.appendChild(el);
+  });
+
+  const firstOfMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+  const gridStart = mondayOf(firstOfMonth);
+  const lastOfMonth = new Date(base.getFullYear(), base.getMonth()+1, 0);
+  const gridEnd = addDays(mondayOf(lastOfMonth), 6);
+
+  for (let d = new Date(gridStart); d <= gridEnd; d = addDays(d, 1)) {
+    const outside = d.getMonth() !== base.getMonth();
+    const dk = toYMD(d);
+    const cell = document.createElement('div');
+    cell.className = `month-cell${outside?' outside':''}${isSameDay(d, today())?' today':''}`;
+    if (!outside) {
+      const daySessions = SESSIONS.filter(s => s.date === dk && (activeInstr==='all' || s.code===activeInstr));
+      const codes = activeInstr === 'all' ? [...new Set(daySessions.map(s=>s.code))] : (daySessions.length ? [activeInstr] : []);
+      cell.innerHTML = `<span class="month-cell-date">${d.getDate()}</span>`;
+      if (daySessions.length) {
+        const dotsHtml = codes.map(c => `<span class="month-dot" style="background:${INSTR_BY_CODE[c].color}"></span>`).join('');
+        cell.innerHTML += `<div class="month-dots">${dotsHtml}</div><div class="month-count">${daySessions.length} session${daySessions.length>1?'s':''}</div>`;
+      }
+      cell.addEventListener('click', () => {
+        const tdNow = today();
+        weekOffset = Math.round((mondayOf(d) - mondayOf(tdNow)) / (7*86400000));
+        viewMode = 'week';
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode==='week'));
+        render();
+      });
+    }
+    grid.appendChild(cell);
+  }
+}
+
+/* ── Render dispatcher ──────────────────────────────────────── */
+function render() {
+  renderTabs();
+  if (viewMode === 'week') renderWeek(); else renderMonth();
+}
+
+/* ── Settings ───────────────────────────────────────────────── */
+document.getElementById('settingsToggle').addEventListener('click', () => {
+  const toggle = document.getElementById('settingsToggle');
+  const body = document.getElementById('settingsBody');
+  const open = body.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+});
+
+const calUrlInput = document.getElementById('calUrlInput');
+const calStatus = document.getElementById('calStatus');
+calUrlInput.value = loadCalUrl();
+
+async function loadFocusAndRender(statusPrefix) {
+  calStatus.className = 'settings-status';
+  calStatus.textContent = `${statusPrefix}…`;
+  try {
+    focusEvents = await fetchFocusEvents();
+    calStatus.textContent = `${statusPrefix} done — ${focusEvents.length} Focus Time block${focusEvents.length===1?'':'s'} found.`;
+    render();
+  } catch (e) {
+    calStatus.className = 'settings-status err';
+    calStatus.textContent = 'Could not load calendar: ' + e.message;
+  }
+}
+
+document.getElementById('saveCalBtn').addEventListener('click', () => {
+  saveCalUrl(calUrlInput.value.trim());
+  loadFocusAndRender('Loading');
+});
+document.getElementById('refreshCalBtn').addEventListener('click', () => loadFocusAndRender('Refreshing'));
+
+/* ── Init ───────────────────────────────────────────────────── */
+render();
+if (loadCalUrl()) loadFocusAndRender('Loading');
+</script>
+</body>
+</html>
