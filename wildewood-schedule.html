@@ -434,8 +434,8 @@ async function fetchFocusEvents() {
   const url = loadCalUrl();
   if (!url) return [];
   const res = await fetch(`${PROXY_URL}/calendar`, { headers: { 'X-Calendar-URL': url } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${text.slice(0, 200)}`);
   const events = parseICS(text);
   const out = [];
   for (const ev of events) {
