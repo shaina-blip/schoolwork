@@ -713,8 +713,14 @@ function lunchSuggestionFor(code, dateYmd) {
 /* ── Roster ─────────────────────────────────────────────────── */
 function rosterFor(code) {
   const counts = {};
-  SESSIONS.filter(s => s.code === code).forEach(s => { counts[s.student] = (counts[s.student]||0) + 1; });
-  return Object.entries(counts).map(([student, count]) => ({ student, count })).sort((a,b) => b.count - a.count || a.student.localeCompare(b.student));
+  const firstDate = {};
+  SESSIONS.filter(s => s.code === code).forEach(s => {
+    counts[s.student] = (counts[s.student]||0) + 1;
+    if (!firstDate[s.student] || s.date < firstDate[s.student]) firstDate[s.student] = s.date;
+  });
+  return Object.entries(counts)
+    .map(([student, count]) => ({ student, count, firstDate: firstDate[student] }))
+    .sort((a,b) => b.count - a.count || a.student.localeCompare(b.student));
 }
 
 /* ── Tabs ───────────────────────────────────────────────────── */
@@ -834,14 +840,15 @@ function renderRoster(container, code) {
   container.innerHTML = `<div class="roster-section"><div class="roster-title">Students this summer (${roster.length})</div><div id="rosterList"></div></div>`;
   const list = document.getElementById('rosterList');
   if (!roster.length) { list.innerHTML = '<div class="empty-state">No sessions found.</div>'; return; }
-  roster.forEach(({ student, count }) => {
+  roster.forEach(({ student, count, firstDate }) => {
     const key = fbKey(`${code}__${student}`);
     const isSub = !!subFlags[key];
     const item = document.createElement('div');
     item.className = `roster-item${isSub ? ' is-sub' : ''}`;
+    const firstLabel = firstDate ? `first: ${formatShortDate(ymdToDate(firstDate))}` : '';
     item.innerHTML = `
       <span class="roster-name">${student}</span>
-      <span class="roster-count">${count} session${count>1?'s':''}</span>
+      <span class="roster-count">${count} session${count>1?'s':''} · ${firstLabel}</span>
       <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''}/> subbing</label>`;
     item.querySelector('input').addEventListener('change', e => {
       set(ref(db, `subFlags/${key}`), e.target.checked ? true : null);
