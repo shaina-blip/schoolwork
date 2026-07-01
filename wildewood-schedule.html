@@ -87,14 +87,22 @@
 
     /* Roster */
     .roster-section { margin-top: 22px; }
-    .roster-title { font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; font-weight: 500; color: var(--green); margin-bottom: 10px; }
-    .roster-item { background: var(--white); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 9px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+    .roster-section + .roster-section { margin-top: 28px; }
+    .roster-title { font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; font-weight: 500; color: var(--green); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .roster-sort { display: flex; gap: 4px; }
+    .roster-sort button { padding: 4px 10px; border-radius: var(--r-pill); border: 1.5px solid #ddd; background: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.68rem; color: #888; cursor: pointer; }
+    .roster-sort button.active { background: var(--sage); color: var(--white); border-color: var(--sage); }
+    .roster-item { background: var(--white); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 9px 12px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 6px; }
+    .roster-item-top { display: flex; align-items: center; gap: 10px; }
+    .roster-item-bottom { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .roster-name { flex: 1; font-size: 0.84rem; }
     .roster-count { font-size: 0.7rem; color: #999; white-space: nowrap; }
     .roster-sub-toggle { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: #aaa; cursor: pointer; white-space: nowrap; }
     .roster-sub-toggle input { accent-color: var(--sage); }
     .roster-sub-toggle input:disabled { cursor: not-allowed; }
-    .roster-item.is-sub { opacity: 0.7; }
+    .roster-sub-note { flex: 1; min-width: 120px; padding: 5px 8px; border: 1.5px solid #ddd; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 0.72rem; }
+    .roster-sub-note:focus { outline: none; border-color: var(--sage); }
+    .roster-item.is-sub { opacity: 0.8; }
     .roster-item.is-sub .roster-name::after { content: ' (subbing)'; color: #bbb; font-size: 0.72rem; font-weight: 400; }
 
     /* Month view */
@@ -166,6 +174,7 @@
   <div class="view-toggle">
     <button class="view-btn active" data-mode="week">Week</button>
     <button class="view-btn" data-mode="month">Month</button>
+    <button class="view-btn" data-mode="roster">Roster</button>
   </div>
 </header>
 
@@ -797,7 +806,6 @@ function renderWeek() {
       </div>
     </div>
     <div id="weekDays"></div>
-    <div id="rosterArea"></div>
   `;
   document.getElementById('prevWeekBtn').addEventListener('click', () => { weekOffset--; render(); });
   document.getElementById('nextWeekBtn').addEventListener('click', () => { weekOffset++; render(); });
@@ -830,31 +838,74 @@ function renderWeek() {
     }
     document.getElementById('weekDays').appendChild(grp);
   }
-
-  if (activeInstr !== 'all') renderRoster(document.getElementById('rosterArea'), activeInstr);
 }
 
-/* ── Roster render ──────────────────────────────────────────── */
-function renderRoster(container, code) {
+/* ── Roster view ────────────────────────────────────────────── */
+let rosterSort = 'count'; // 'count' | 'date'
+
+function sortedRoster(code) {
   const roster = rosterFor(code);
-  container.innerHTML = `<div class="roster-section"><div class="roster-title">Students this summer (${roster.length})</div><div id="rosterList"></div></div>`;
-  const list = document.getElementById('rosterList');
-  if (!roster.length) { list.innerHTML = '<div class="empty-state">No sessions found.</div>'; return; }
-  roster.forEach(({ student, count, firstDate }) => {
-    const key = fbKey(`${code}__${student}`);
-    const isSub = !!subFlags[key];
-    const item = document.createElement('div');
-    item.className = `roster-item${isSub ? ' is-sub' : ''}`;
-    const firstLabel = firstDate ? `first: ${formatShortDate(ymdToDate(firstDate))}` : '';
-    item.innerHTML = `
-      <span class="roster-name">${student}</span>
-      <span class="roster-count">${count} session${count>1?'s':''} · ${firstLabel}</span>
-      <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''}/> subbing</label>`;
-    item.querySelector('input').addEventListener('change', e => {
-      set(ref(db, `subFlags/${key}`), e.target.checked ? true : null);
-      item.classList.toggle('is-sub', e.target.checked);
+  if (rosterSort === 'date') {
+    return [...roster].sort((a,b) => (a.firstDate||'').localeCompare(b.firstDate||'') || a.student.localeCompare(b.student));
+  }
+  return roster; // rosterFor() already sorts by count desc
+}
+
+function renderRosterView() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+
+  const sortBar = document.createElement('div');
+  sortBar.className = 'roster-sort';
+  sortBar.innerHTML = `
+    <button data-sort="count" class="${rosterSort==='count'?'active':''}">Most sessions</button>
+    <button data-sort="date" class="${rosterSort==='date'?'active':''}">First session</button>`;
+  sortBar.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => { rosterSort = b.dataset.sort; render(); });
+  });
+  content.appendChild(sortBar);
+  content.appendChild(document.createElement('div')).style.height = '14px';
+
+  const codes = activeInstr === 'all' ? INSTRUCTORS.map(i => i.code) : [activeInstr];
+  codes.forEach(code => {
+    const section = document.createElement('div');
+    section.className = 'roster-section';
+    const instr = INSTR_BY_CODE[code];
+    const roster = sortedRoster(code);
+    section.innerHTML = `<div class="roster-title"><span style="color:${instr.color}">${instr.name} — ${roster.length} student${roster.length===1?'':'s'} this summer</span></div><div id="rosterList-${code}"></div>`;
+    content.appendChild(section);
+    const list = section.querySelector(`#rosterList-${code}`);
+    if (!roster.length) { list.innerHTML = '<div class="empty-state">No sessions found.</div>'; return; }
+    roster.forEach(({ student, count, firstDate }) => {
+      const key = fbKey(`${code}__${student}`);
+      const subInfo = subFlags[key];
+      const isSub = !!(subInfo && subInfo.sub);
+      const subNote = (subInfo && subInfo.note) || '';
+      const item = document.createElement('div');
+      item.className = `roster-item${isSub ? ' is-sub' : ''}`;
+      const firstLabel = firstDate ? `first: ${formatShortDate(ymdToDate(firstDate))}` : '';
+      item.innerHTML = `
+        <div class="roster-item-top">
+          <span class="roster-name">${student}</span>
+          <span class="roster-count">${count} session${count>1?'s':''} · ${firstLabel}</span>
+        </div>
+        <div class="roster-item-bottom">
+          <label class="roster-sub-toggle"><input type="checkbox" ${isSub?'checked':''}/> subbing</label>
+          <input type="text" class="roster-sub-note" placeholder="subbing for…" value="${subNote}" style="display:${isSub?'block':'none'}"/>
+        </div>`;
+      const checkbox = item.querySelector('input[type="checkbox"]');
+      const noteInput = item.querySelector('.roster-sub-note');
+      checkbox.addEventListener('change', e => {
+        item.classList.toggle('is-sub', e.target.checked);
+        noteInput.style.display = e.target.checked ? 'block' : 'none';
+        if (e.target.checked) set(ref(db, `subFlags/${key}`), { sub: true, note: noteInput.value.trim() });
+        else set(ref(db, `subFlags/${key}`), null);
+      });
+      noteInput.addEventListener('change', () => {
+        if (checkbox.checked) set(ref(db, `subFlags/${key}`), { sub: true, note: noteInput.value.trim() });
+      });
+      list.appendChild(item);
     });
-    list.appendChild(item);
   });
 }
 
@@ -920,7 +971,9 @@ function renderMonth() {
 /* ── Render dispatcher ──────────────────────────────────────── */
 function render() {
   renderTabs();
-  if (viewMode === 'week') renderWeek(); else renderMonth();
+  if (viewMode === 'week') renderWeek();
+  else if (viewMode === 'month') renderMonth();
+  else renderRosterView();
 }
 
 /* ── Auth gate ──────────────────────────────────────────────── */
