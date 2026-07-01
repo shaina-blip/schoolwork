@@ -105,6 +105,16 @@
     .roster-item.is-sub { opacity: 0.8; }
     .roster-item.is-sub .roster-name::after { content: ' (subbing)'; color: #bbb; font-size: 0.72rem; font-weight: 400; }
 
+    /* Heatmap view */
+    .heatmap-section { margin-bottom: 30px; }
+    .heatmap-title { font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; font-weight: 500; margin-bottom: 8px; }
+    .heatmap-legend { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; color: #999; margin-bottom: 10px; }
+    .heatmap-legend-swatch { width: 13px; height: 13px; border-radius: 3px; }
+    .heatmap-grid { display: grid; grid-template-columns: 46px repeat(5, 1fr); gap: 2px; }
+    .heatmap-dow { font-size: 0.68rem; color: #888; text-align: center; font-weight: 500; padding-bottom: 4px; }
+    .heatmap-time { font-size: 0.6rem; color: #aaa; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; white-space: nowrap; }
+    .heatmap-cell { border-radius: 3px; min-height: 16px; }
+
     /* Month view */
     .month-label { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; font-weight: 500; color: var(--green); text-align: center; margin-bottom: 12px; }
     .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
@@ -175,6 +185,7 @@
     <button class="view-btn active" data-mode="week">Week</button>
     <button class="view-btn" data-mode="month">Month</button>
     <button class="view-btn" data-mode="roster">Roster</button>
+    <button class="view-btn" data-mode="heatmap">Heatmap</button>
   </div>
 </header>
 
@@ -239,11 +250,11 @@ const PROXY_URL = 'https://canvas-proxy.shaina-4f5.workers.dev';
 
 /* ── Instructors ────────────────────────────────────────────── */
 const INSTRUCTORS = [
-  { code: 'QC',   name: 'Quinn Cantor',      color: 'var(--qc)',   lastName: 'Cantor'     },
-  { code: 'JG',   name: 'Joelle Glazer',     color: 'var(--jg)',   lastName: 'Glazer'     },
-  { code: 'TS',   name: 'Tara Shuman',       color: 'var(--ts)',   lastName: 'Shuman'     },
-  { code: 'JP',   name: 'Josh Perrotton',    color: 'var(--jp)',   lastName: 'Perrotton'  },
-  { code: 'SLFA', name: 'Shaina Fils-Aime',  color: 'var(--slfa)', lastName: 'Fils-Aime'  },
+  { code: 'QC',   name: 'Quinn Cantor',      color: '#C5B8E8', lastName: 'Cantor'     },
+  { code: 'JG',   name: 'Joelle Glazer',     color: '#A03030', lastName: 'Glazer'     },
+  { code: 'TS',   name: 'Tara Shuman',       color: '#5B3FA0', lastName: 'Shuman'     },
+  { code: 'JP',   name: 'Josh Perrotton',    color: '#2D6E3E', lastName: 'Perrotton'  },
+  { code: 'SLFA', name: 'Shaina Fils-Aime',  color: '#FAC0D1', lastName: 'Fils-Aime'  },
 ];
 const INSTR_BY_CODE = {};
 INSTRUCTORS.forEach(i => INSTR_BY_CODE[i.code] = i);
@@ -482,6 +493,16 @@ function formatShortDate(d) { return d.toLocaleDateString('en-US', { month: 'sho
 function formatDayHeading(d) { return d.toLocaleDateString('en-US', { weekday: 'long' }); }
 function formatTime(d) { let h=d.getHours(), m=d.getMinutes(), ap=h>=12?'pm':'am'; h=h%12||12; return `${h}${m?':'+String(m).padStart(2,'0'):''}${ap}`; }
 function fbKey(s) { return s.replace(/[.#$\[\]\/]/g, '_'); }
+function minutesLabel(mins) {
+  let h = Math.floor(mins/60), m = mins%60;
+  const ap = h>=12?'pm':'am'; let hh = h%12; if (hh===0) hh=12;
+  return `${hh}${m?':'+String(m).padStart(2,'0'):''}${ap}`;
+}
+function hexToRgba(hex, alpha) {
+  hex = hex.replace('#','');
+  const r = parseInt(hex.substring(0,2),16), g = parseInt(hex.substring(2,4),16), b = parseInt(hex.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 function sessionsFromRaw(raw) {
   return raw.map(([date, start, end, code, student, title], i) => ({
@@ -717,6 +738,92 @@ function lunchSuggestionFor(code, dateYmd) {
   }
 
   return { none: true, dayStart: daySessions[0].start, dayEnd: daySessions[daySessions.length-1].end };
+}
+
+/* ── Heatmap (general weekly pattern, Mon-Fri) ───────────────── */
+function heatmapDataFor(code) {
+  const relevant = SESSIONS.filter(s => s.code === code);
+  if (!relevant.length) return null;
+
+  let minMin = Infinity, maxMin = -Infinity;
+  relevant.forEach(s => {
+    const sm = s.start.getHours()*60 + s.start.getMinutes();
+    const em = s.end.getHours()*60 + s.end.getMinutes();
+    if (sm < minMin) minMin = sm;
+    if (em > maxMin) maxMin = em;
+  });
+  minMin = Math.floor(minMin/30)*30;
+  maxMin = Math.ceil(maxMin/30)*30;
+  const numSlots = Math.max(1, (maxMin - minMin) / 30);
+
+  const counts = Array.from({length: 5}, () => new Array(numSlots).fill(0));
+  relevant.forEach(s => {
+    const dow = ymdToDate(s.date).getDay(); // 0=Sun..6=Sat
+    if (dow === 0 || dow === 6) return;
+    const col = dow - 1; // Mon=0..Fri=4
+    const sm = s.start.getHours()*60 + s.start.getMinutes();
+    const em = s.end.getHours()*60 + s.end.getMinutes();
+    const fromSlot = Math.max(0, Math.floor((sm - minMin) / 30));
+    const toSlot = Math.min(numSlots, Math.ceil((em - minMin) / 30));
+    for (let slot = fromSlot; slot < toSlot; slot++) counts[col][slot]++;
+  });
+
+  let maxCount = 0;
+  counts.forEach(colArr => colArr.forEach(c => { if (c > maxCount) maxCount = c; }));
+
+  return { minMin, maxMin, numSlots, counts, maxCount };
+}
+
+function renderHeatmapSection(container, code) {
+  const instr = INSTR_BY_CODE[code];
+  const data = heatmapDataFor(code);
+  const section = document.createElement('div');
+  section.className = 'heatmap-section';
+  section.innerHTML = `<div class="heatmap-title" style="color:${instr.color}">${instr.name}</div>`;
+
+  if (!data) {
+    section.innerHTML += '<div class="empty-state">No sessions found.</div>';
+    container.appendChild(section);
+    return;
+  }
+
+  section.innerHTML += `
+    <div class="heatmap-legend">
+      <span>Fewer sessions</span>
+      <span class="heatmap-legend-swatch" style="background:${hexToRgba(instr.color, 0.08)}"></span>
+      <span class="heatmap-legend-swatch" style="background:${hexToRgba(instr.color, 0.35)}"></span>
+      <span class="heatmap-legend-swatch" style="background:${hexToRgba(instr.color, 0.6)}"></span>
+      <span class="heatmap-legend-swatch" style="background:${hexToRgba(instr.color, 0.9)}"></span>
+      <span>More sessions</span>
+    </div>`;
+
+  const grid = document.createElement('div');
+  grid.className = 'heatmap-grid';
+
+  grid.innerHTML += '<div></div>';
+  ['Mon','Tue','Wed','Thu','Fri'].forEach(d => { grid.innerHTML += `<div class="heatmap-dow">${d}</div>`; });
+
+  for (let slot = 0; slot < data.numSlots; slot++) {
+    const mins = data.minMin + slot*30;
+    const label = mins % 60 === 0 ? minutesLabel(mins) : '';
+    grid.innerHTML += `<div class="heatmap-time">${label}</div>`;
+    for (let col = 0; col < 5; col++) {
+      const count = data.counts[col][slot];
+      const alpha = data.maxCount ? 0.06 + (count / data.maxCount) * 0.84 : 0.06;
+      const bg = count > 0 ? hexToRgba(instr.color, alpha) : '#F2EFEA';
+      grid.innerHTML += `<div class="heatmap-cell" style="background:${bg}" title="${count} session${count===1?'':'s'}"></div>`;
+    }
+  }
+
+  section.appendChild(grid);
+  container.appendChild(section);
+}
+
+function renderHeatmapView() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  const codes = activeInstr === 'all' ? INSTRUCTORS.map(i => i.code) : [activeInstr];
+  codes.forEach(code => renderHeatmapSection(content, code));
 }
 
 /* ── Roster ─────────────────────────────────────────────────── */
@@ -973,7 +1080,8 @@ function render() {
   renderTabs();
   if (viewMode === 'week') renderWeek();
   else if (viewMode === 'month') renderMonth();
-  else renderRosterView();
+  else if (viewMode === 'roster') renderRosterView();
+  else renderHeatmapView();
 }
 
 /* ── Auth gate ──────────────────────────────────────────────── */
