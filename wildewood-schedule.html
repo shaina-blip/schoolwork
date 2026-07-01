@@ -548,8 +548,9 @@ function startFirebaseListeners() {
   onValue(ref(db, 'meta/lastUpload'), snap => {
     const m = snap.val();
     if (!m) return;
-    csvStatus.className = 'settings-status';
-    csvStatus.textContent = `Currently loaded: ${m.count} sessions — uploaded ${new Date(m.at).toLocaleString()} by ${m.by}.`;
+    const skipNote = m.skipped ? ` (${m.skipped} row${m.skipped>1?'s':''} skipped — unreadable date/time format)` : '';
+    csvStatus.className = m.skipped ? 'settings-status err' : 'settings-status';
+    csvStatus.textContent = `Currently loaded: ${m.count} sessions — uploaded ${new Date(m.at).toLocaleString()} by ${m.by}.${skipNote}`;
   });
 }
 
@@ -661,22 +662,28 @@ function csvToSessions(text) {
   if (Object.values(cols).some(v => v === -1)) throw new Error('CSV is missing an expected column. Check the header row.');
 
   const out = [];
+  let skipped = 0;
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
     const lastName = (r[cols.edLast] || '').trim();
     const code = LAST_NAME_TO_CODE[lastName];
-    if (!code) continue;
-    const date = parseUSDate(r[cols.date] || '');
-    if (!date || date < SUMMER_START_YMD) continue;
+    if (!code) continue; // not one of the 5 core instructors -- expected, not a warning
+
+    const rawDateField = (r[cols.date] || '').trim();
+    const date = parseUSDate(rawDateField);
+    if (date === null) { if (rawDateField) skipped++; continue; } // unreadable date format
+    if (date < SUMMER_START_YMD) continue; // before summer -- expected, not a warning
+
     const start = parseUSTime(r[cols.start] || '');
     const end = parseUSTime(r[cols.end] || '');
-    if (!start || !end) continue;
+    if (!start || !end) { skipped++; continue; } // unreadable time format
+
     const student = `${(r[cols.stuFirst]||'').trim()} ${(r[cols.stuLast]||'').trim()}`.trim();
     const title = (r[cols.title] || '').trim() || student;
     out.push([date, start, end, code, student, title]);
   }
   out.sort((a,b) => (a[0]+a[1]).localeCompare(b[0]+b[1]));
-  return out;
+  return { sessions: out, skipped };
 }
 
 /* ── Lunch suggestion ───────────────────────────────────────── */
@@ -720,12 +727,12 @@ function lunchSuggestionFor(code, dateYmd) {
   // 1. Ideal window: 12:00-1:30
   for (const g of usableGaps) {
     const slot = slotWithin(g, primaryStart, primaryEnd);
-    if (slot) return { none: false, start: slot.start, end: slot.end };
+    if (slot) return { none: false, start: slot.start, end: slot.end, tier: 'ideal' };
   }
   // 2. Secondary: 11:30-12:00
   for (const g of usableGaps) {
     const slot = slotWithin(g, earlyStart, primaryStart);
-    if (slot) return { none: false, start: slot.start, end: slot.end };
+    if (slot) return { none: false, start: slot.start, end: slot.end, tier: 'early' };
   }
   // 3. Secondary: earliest available slot after 1:30
   const lateGaps = usableGaps
@@ -734,7 +741,7 @@ function lunchSuggestionFor(code, dateYmd) {
     .sort((a,b) => a.start - b.start);
   if (lateGaps.length) {
     const g = lateGaps[0];
-    return { none: false, start: g.start, end: new Date(g.start.getTime() + 30*60000) };
+    return { none: false, start: g.start, end: new Date(g.start.getTime() + 30*60000), tier: 'late' };
   }
 
   return { none: true, dayStart: daySessions[0].start, dayEnd: daySessions[daySessions.length-1].end };
@@ -880,7 +887,12 @@ function buildDayTimeline(dateYmd, code) {
   });
   if (code !== 'all') {
     const lunch = lunchSuggestionFor(code, dateYmd);
-    if (lunch && !lunch.none) items.push({ type:'lunch', start: lunch.start, end: lunch.end, code, title: 'Suggested lunch' });
+    if (lunch && !lunch.none) {
+      const tierLabel = lunch.tier === 'ideal' ? 'Suggested lunch'
+        : lunch.tier === 'early' ? 'Suggested lunch (early — midday was booked)'
+        : 'Suggested lunch (later — no midday gap today)';
+      items.push({ type:'lunch', start: lunch.start, end: lunch.end, code, title: tierLabel });
+    }
     else if (lunch && lunch.none) items.push({ type:'gap-warn', start: lunch.dayStart, end: lunch.dayStart, code, title: 'No lunch gap found — back-to-back today' });
   }
   items.sort((a,b) => a.start - b.start);
@@ -1163,10 +1175,10 @@ csvFileInput.addEventListener('change', () => {
   const reader = new FileReader();
   reader.onload = async () => {
     try {
-      const parsed = csvToSessions(reader.result);
+      const { sessions: parsed, skipped } = csvToSessions(reader.result);
       if (!parsed.length) throw new Error('No matching sessions found for the 5 core instructors from ' + SUMMER_START_YMD + ' onward.');
       await set(ref(db, 'sessions'), parsed);
-      await set(ref(db, 'meta/lastUpload'), { at: Date.now(), by: auth.currentUser.email, count: parsed.length });
+      await set(ref(db, 'meta/lastUpload'), { at: Date.now(), by: auth.currentUser.email, count: parsed.length, skipped });
     } catch (e) {
       csvStatus.className = 'settings-status err';
       csvStatus.textContent = 'Could not parse CSV: ' + e.message;
