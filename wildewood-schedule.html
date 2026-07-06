@@ -131,6 +131,9 @@
     .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: #888; }
     .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
 
+    .focus-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #888; cursor: pointer; margin-bottom: 12px; width: fit-content; }
+    .focus-toggle input { accent-color: var(--focus); }
+
     .empty-state { text-align: center; padding: 30px 20px; color: #aaa; font-size: 0.85rem; }
 
     /* Settings */
@@ -519,6 +522,7 @@ let viewMode    = 'week';
 let weekOffset  = 0;
 let monthOffset = 0;
 let firebaseListenersStarted = false;
+let showFocusTime = localStorage.getItem('ww_show_focus_v1') !== '0';
 
 /* ── Firebase: data subscriptions (only start once signed in) ─ */
 function startFirebaseListeners() {
@@ -882,9 +886,11 @@ function buildDayTimeline(dateYmd, code) {
   SESSIONS.filter(s => s.date === dateYmd && (code==='all' || s.code===code)).forEach(s => {
     items.push({ type:'session', start: s.start, end: s.end, code: s.code, title: s.title });
   });
-  focusEvents.filter(f => toYMD(f.start) === dateYmd && (code==='all' || f.code===code)).forEach(f => {
-    items.push({ type:'focus', start: f.start, end: f.end, code: f.code, title: 'Focus Time' });
-  });
+  if (showFocusTime) {
+    focusEvents.filter(f => toYMD(f.start) === dateYmd && (code==='all' || f.code===code)).forEach(f => {
+      items.push({ type:'focus', start: f.start, end: f.end, code: f.code, title: 'Focus Time' });
+    });
+  }
   if (code !== 'all') {
     const lunch = lunchSuggestionFor(code, dateYmd);
     if (lunch && !lunch.none) {
@@ -929,6 +935,16 @@ function renderWeek() {
   document.getElementById('prevWeekBtn').addEventListener('click', () => { weekOffset--; render(); });
   document.getElementById('nextWeekBtn').addEventListener('click', () => { weekOffset++; render(); });
   document.getElementById('thisWeekBtn').addEventListener('click', () => { weekOffset=0; render(); });
+
+  const focusToggle = document.createElement('label');
+  focusToggle.className = 'focus-toggle';
+  focusToggle.innerHTML = `<input type="checkbox" ${showFocusTime?'checked':''}/> Show Focus Time`;
+  focusToggle.querySelector('input').addEventListener('change', e => {
+    showFocusTime = e.target.checked;
+    localStorage.setItem('ww_show_focus_v1', showFocusTime ? '1' : '0');
+    render();
+  });
+  document.getElementById('weekDays').appendChild(focusToggle);
 
   if (activeInstr === 'all') {
     const legend = document.createElement('div');
