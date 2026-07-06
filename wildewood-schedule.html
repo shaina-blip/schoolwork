@@ -837,6 +837,23 @@ function renderHeatmapView() {
   codes.forEach(code => renderHeatmapSection(content, code));
 }
 
+/* ── Weekly hours ───────────────────────────────────────────── */
+function weekHoursFor(code, monday) {
+  const sunday = addDays(monday, 6);
+  let totalMin = 0;
+  SESSIONS.forEach(s => {
+    if (code !== 'all' && s.code !== code) return;
+    const d = ymdToDate(s.date);
+    if (d < monday || d > sunday) return;
+    totalMin += (s.end - s.start) / 60000;
+  });
+  return totalMin / 60;
+}
+function formatHours(h) {
+  const rounded = Math.round(h * 10) / 10;
+  return `${rounded}h`;
+}
+
 /* ── Roster ─────────────────────────────────────────────────── */
 function rosterFor(code) {
   const counts = {};
@@ -921,9 +938,10 @@ function renderWeek() {
   const monday = addDays(mondayOf(td), weekOffset*7);
   const sunday = addDays(monday, 6);
   const content = document.getElementById('content');
+  const hoursLabel = activeInstr === 'all' ? '' : ` · ${formatHours(weekHoursFor(activeInstr, monday))} booked`;
   content.innerHTML = `
     <div class="week-nav">
-      <span class="week-nav-label">${formatShortDate(monday)} – ${formatShortDate(sunday)}</span>
+      <span class="week-nav-label">${formatShortDate(monday)} – ${formatShortDate(sunday)}${hoursLabel}</span>
       <div class="week-nav-btns">
         <button class="week-arrow-btn" id="prevWeekBtn">&#8249;</button>
         <button class="today-btn" id="thisWeekBtn">Today</button>
@@ -949,7 +967,7 @@ function renderWeek() {
   if (activeInstr === 'all') {
     const legend = document.createElement('div');
     legend.className = 'legend';
-    INSTRUCTORS.forEach(i => { legend.innerHTML += `<span class="legend-item"><span class="legend-dot" style="background:${i.color}"></span>${i.code}</span>`; });
+    INSTRUCTORS.forEach(i => { legend.innerHTML += `<span class="legend-item"><span class="legend-dot" style="background:${i.color}"></span>${i.code} — ${formatHours(weekHoursFor(i.code, monday))}</span>`; });
     document.getElementById('weekDays').appendChild(legend);
   }
 
